@@ -11,6 +11,7 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 # Import core framework
 from core.implicit_base import Sphere
 from core.mesh_container import MeshSDF
+from core.analytics import estimate_volume_fraction, predict_stiffness
 
 # Import lattice structures and grading patterns
 from lattices.tpms import Gyroid, Intersection
@@ -93,13 +94,25 @@ def main():
     print("Synthesizing conformal structure...")
     final_part = Intersection(container, graded_lattice)
 
-    # --- 5. VISUALIZATION ---
+    # --- 5. ANALYTICS ---
+    # Perform engineering calculations before rendering
+    print("Performing engineering analytics...")
+    b = container.bounds
+    vol_frac = estimate_volume_fraction(final_part, b, samples=50000)
+    est_stiffness = predict_stiffness(vol_frac, base_material_modulus=2500) # MPa (Aluminum-ish)
+    
+    print("-" * 40)
+    print(f"  Engineering Stats for Generated Lattice:")
+    print(f"  - Estimated Volume Fraction: {vol_frac:.2%}")
+    print(f"  - Predicted Stiffness (E*):  {est_stiffness:.2f} MPa")
+    print("-" * 40)
+
+    # --- 6. VISUALIZATION ---
     # The renderer automatically handles scalar color-mapping for GradedLattice.
     print(f"Starting renderer (Resolution: {RESOLUTION})...")
     renderer = Renderer()
     
     # Calculate render bounds slightly larger than the container
-    b = container.bounds
     render_bounds = (b[0]-0.2, b[1]+0.2, b[2]-0.2, b[3]+0.2, b[4]-0.2, b[5]+0.2)
     
     # We will modify the renderer to return timing info or we will time it here.
@@ -111,7 +124,7 @@ def main():
         level=0.0
     )
 
-    # --- 6. EXPORT ---
+    # --- 7. EXPORT ---
     # Save the resulting high-quality mesh as a binary STL.
     if final_mesh is not None:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
