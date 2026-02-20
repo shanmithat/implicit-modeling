@@ -2,6 +2,8 @@ import sys
 import os
 import numpy as np
 import pyvista as pv
+import time
+from datetime import datetime
 
 # Ensure the current directory is in the Python path for local module imports
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
@@ -48,6 +50,11 @@ def main():
     CELL_SIZE = 0.8        # Physical size of a single lattice cell
     Z_RANGE = (-1.0, 1.0)  # Vertical range for functional grading
     
+    # Resolution Safety Check
+    if RESOLUTION > 150:
+        print(f"[SAFETY CHECK] WARNING: Resolution {RESOLUTION} is above the recommended threshold (150).")
+        print("               This may lead to extreme memory usage or crashes.")
+    
     # Frequency = 2*PI / Cell_Size
     GYROID_FREQUENCY = (2 * np.pi) / CELL_SIZE
 
@@ -55,12 +62,16 @@ def main():
     # We use MeshSDF to treat a 3D model as an implicit boundary.
     container_file = create_demo_container()
     print(f"Loading container: {container_file}...")
+    
+    start_time = time.time()
     try:
         # use_cache=True enables high-speed voxelization for evaluation
         container = MeshSDF(container_file, use_cache=True, cache_resolution=50)
     except Exception as e:
         print(f"Mesh loading failed: {e}. Falling back to Sphere.")
         container = Sphere(radius=1.2)
+    end_time = time.time()
+    print(f"[BENCHMARK] (a) Load MeshSDF: {end_time - start_time:.4f} seconds")
 
     # --- 3. DEFINE GRADED LATTICE ---
     print(f"Generating Gyroid lattice (Frequency: {GYROID_FREQUENCY:.2f})...")
@@ -91,6 +102,8 @@ def main():
     b = container.bounds
     render_bounds = (b[0]-0.2, b[1]+0.2, b[2]-0.2, b[3]+0.2, b[4]-0.2, b[5]+0.2)
     
+    # We will modify the renderer to return timing info or we will time it here.
+    # For now, let's time the whole process.
     final_mesh = renderer.render(
         surface=final_part,
         bounds=render_bounds,
@@ -101,13 +114,16 @@ def main():
     # --- 6. EXPORT ---
     # Save the resulting high-quality mesh as a binary STL.
     if final_mesh is not None:
-        export_path = os.path.join("export", "final_graded_structure.stl")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        export_filename = f"graded_structure_{timestamp}.stl"
+        export_path = os.path.join("export", export_filename)
         print(f"Exporting to: {export_path}...")
         save_mesh_to_stl(final_mesh, export_path)
     
     print("="*60)
     print("      Demonstration Complete: Files saved to /export/")
     print("="*60)
+
 
 if __name__ == "__main__":
     main()

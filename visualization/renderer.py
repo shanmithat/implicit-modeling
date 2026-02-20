@@ -1,6 +1,7 @@
 import numpy as np
 import pyvista as pv
 from skimage.measure import marching_cubes
+import time
 
 class Renderer:
     """
@@ -26,11 +27,14 @@ class Renderer:
         
         # Evaluate the implicit function on the grid
         print("Evaluating implicit function on the grid...")
+        start_field = time.time()
         volume_data = surface.evaluate(x, y, z)
-        print("Evaluation complete.")
+        end_field = time.time()
+        print(f"[BENCHMARK] (b) Compute the Field: {end_field - start_field:.4f} seconds")
 
         # Generate the mesh using marching cubes
         print("Generating mesh using marching cubes...")
+        start_mc = time.time()
         try:
             spacing = ((xmax-xmin)/(n_points-1), (ymax-ymin)/(n_points-1), (zmax-zmin)/(n_points-1))
             verts, faces, _, _ = marching_cubes(volume_data, level=level, spacing=spacing)
@@ -40,7 +44,8 @@ class Renderer:
             print(f"Marching cubes failed: {e}")
             print("This often means the surface does not intersect the volume. Try adjusting bounds or level.")
             return None
-        print("Mesh generation complete.")
+        end_mc = time.time()
+        print(f"[BENCHMARK] (c) Generate the Marching Cubes mesh: {end_mc - start_mc:.4f} seconds")
 
         if verts.size == 0 or faces.size == 0:
             print("Warning: No surface generated. The level set might be empty within the given bounds.")
