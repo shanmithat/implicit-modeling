@@ -126,7 +126,8 @@ def main():
         surface=final_part,
         bounds=render_bounds,
         n_points=RESOLUTION,
-        level=CONFIG["level_set"]
+        level=CONFIG["level_set"],
+        show_section=CONFIG["show_cross_section"]
     )
 
     # --- 7. EXPORT ---

@@ -7,7 +7,21 @@ class Renderer:
     """
     Handles the visualization of implicit surfaces.
     """
-    def render(self, surface, bounds=(-1.5, 1.5, -1.5, 1.5, -1.5, 1.5), n_points=100, level=0.0):
+    def show_cross_section(self, mesh, origin=(0, 0, 0), normal=(0, 0, 1)):
+        """
+        Clips the mesh to show its internal structure.
+        
+        Args:
+            mesh (pv.PolyData): The mesh to clip.
+            origin (tuple): The origin point of the clipping plane.
+            normal (tuple): The normal vector of the clipping plane.
+            
+        Returns:
+            pv.PolyData: The clipped mesh.
+        """
+        return mesh.clip(normal=normal, origin=origin, invert=False)
+
+    def render(self, surface, bounds=(-1.5, 1.5, -1.5, 1.5, -1.5, 1.5), n_points=100, level=0.0, show_section=False):
         """
         Generates a mesh from an implicit surface and displays it.
         
@@ -17,6 +31,7 @@ class Renderer:
                             defining the volume to mesh.
             n_points (int): The number of points along each axis for the grid.
             level (float): The iso-level to extract the surface at.
+            show_section (bool): If True, shows a cross-section of the lattice.
         """
         xmin, xmax, ymin, ymax, zmin, zmax = bounds
         
@@ -52,15 +67,12 @@ class Renderer:
             return None
 
         # Create a PyVista mesh
-        # The faces array from marching_cubes needs to be padded for PyVista
         faces_padded = np.hstack((np.full((faces.shape[0], 1), 3), faces))
         mesh = pv.PolyData(verts, faces_padded)
 
         # Calculate scalars for coloring if it's a graded lattice
         scalars = None
         thickness_func = None
-        
-        # Try to find a thickness function in the surface or its sub-surfaces
         if hasattr(surface, 'thickness_function'):
             thickness_func = surface.thickness_function
         elif hasattr(surface, 'surfaces'):
@@ -74,6 +86,15 @@ class Renderer:
             scalars = thickness_func(verts[:, 0], verts[:, 1], verts[:, 2])
             mesh.point_data["Thickness"] = scalars
 
+        # Handle cross-section toggle
+        display_mesh = mesh
+        title = "Implicit Surface Visualization (Full View)"
+        if show_section:
+            print("Applying cross-section clipping...")
+            # Clip along the X-Z plane (normal pointing in Y direction) to see Z-grading clearly
+            display_mesh = self.show_cross_section(mesh, origin=(0, 0, 0), normal=(0, 1, 0))
+            title = "Implicit Surface Visualization (Cross-Section View)"
+
         # Check if a display is available
         if not pv.system_supports_plotting():
             print("3D plotting is not supported on this system. Cannot open interactive window.")
@@ -83,14 +104,13 @@ class Renderer:
         print("Opening visualization window...")
         plotter = pv.Plotter()
         if scalars is not None:
-            plotter.add_mesh(mesh, scalars="Thickness", cmap='viridis', show_edges=True, smooth_shading=True)
+            # Note: PyVista handles mapping the existing Thickness scalars from the original mesh to the clipped one
+            plotter.add_mesh(display_mesh, scalars="Thickness", cmap='viridis', show_edges=True, smooth_shading=True)
         else:
-            plotter.add_mesh(mesh, color='lightblue', show_edges=True, smooth_shading=True)
+            plotter.add_mesh(display_mesh, color='lightblue', show_edges=True, smooth_shading=True)
         
         plotter.show_grid()
-        plotter.add_title("Implicit Surface Visualization")
-        
-        # Use interactive=True to ensure the window stays open
+        plotter.add_title(title)
         plotter.show(interactive=True)
         print("Visualization window closed.")
         

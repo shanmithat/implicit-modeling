@@ -30,7 +30,8 @@ CONFIG = {
     # --- Visualization ---
     "show_edges": True,
     "colormap": "viridis",
-    "level_set": 0.0                 # The iso-level to extract the surface at
+    "level_set": 0.0,                # The iso-level to extract the surface at
+    "show_cross_section": True      # Set to True to see internal grading
 }
 
 def get_frequency():
