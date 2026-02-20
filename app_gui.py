@@ -71,34 +71,34 @@ if st.sidebar.button("🚀 Generate Structure"):
                 container = Sphere(radius=1.2)
 
             # 2. Lattice Synthesis
+            b = container.bounds
             freq = (2 * np.pi) / cell_size
-            base_lattice = Gyroid(frequency=freq) # Standardize on Gyroid for MVP
+            base_lattice = Gyroid(frequency=freq)
             
-            grading = linear_z_grading(z_min=-1.0, z_max=1.0, t_min=t_min, t_max=t_max)
+            # Dynamic Z-bounds for grading
+            grading = linear_z_grading(z_min=b[4], z_max=b[5], t_min=t_min, t_max=t_max)
             graded = GradedLattice(base_lattice, grading)
             final_part = Intersection(container, graded)
 
             # 3. Analytics
             st.write("Performing Engineering Analytics...")
-            b = container.bounds
             st.session_state.vol_frac = calculate_volume_fraction(final_part, b, resolution=40)
             total_vol = (b[1]-b[0]) * (b[3]-b[2]) * (b[5]-b[4])
-            st.session_state.mass = estimate_mass(st.session_state.vol_frac, total_vol, 2.7) # Al density
+            st.session_state.mass = estimate_mass(st.session_state.vol_frac, total_vol, 2.7)
 
             # 4. Mesh Generation
-            st.write("Generating 3D Mesh (Marching Cubes)...")
+            st.write(f"Generating 3D Mesh at resolution {resolution}...")
             pv.OFF_SCREEN = True
             plotter = pv.Plotter()
             
-            # Simple bounding box slightly larger than container
-            render_bounds = (b[0]-0.1, b[1]+0.1, b[2]-0.1, b[3]+0.1, b[4]-0.1, b[5]+0.1)
+            # Bounding box slightly larger than container
+            render_bounds = (b[0]-0.05, b[1]+0.05, b[2]-0.05, b[3]+0.05, b[4]-0.05, b[5]+0.05)
             
-            # Use pyvista's built-in marching cubes for visualization
             grid = pv.ImageData(
                 dimensions=(resolution, resolution, resolution),
-                spacing=((render_bounds[1]-render_bounds[0])/resolution,
-                         (render_bounds[3]-render_bounds[2])/resolution,
-                         (render_bounds[5]-render_bounds[4])/resolution),
+                spacing=((render_bounds[1]-render_bounds[0])/(resolution-1),
+                         (render_bounds[3]-render_bounds[2])/(resolution-1),
+                         (render_bounds[5]-render_bounds[4])/(resolution-1)),
                 origin=(render_bounds[0], render_bounds[2], render_bounds[4])
             )
             
@@ -107,11 +107,26 @@ if st.sidebar.button("🚀 Generate Structure"):
             grid.point_data["values"] = values
             mesh = grid.contour([0.0])
 
+            # Validation Check
+            if mesh.n_points == 0:
+                st.error("Lattice out of bounds or too thin to resolve. Try decreasing thickness or increasing resolution.")
+                st.stop()
+
             # 5. Export for Viewer
-            plotter.add_mesh(mesh, color="lightblue", show_edges=True)
+            plotter.set_background("#1e1e1e") # Dark Grey Background
+            plotter.add_mesh(mesh, color="lightblue", show_edges=True, smooth_shading=True)
+            
+            # Studio Lighting and Eye Dome Lighting
+            plotter.add_light(pv.Light(position=(2, 2, 5), intensity=1.5))
+            plotter.enable_eye_dome_lighting()
+            
+            # Center and Zoom
             plotter.view_isometric()
-            html_path = "temp_viewer.html"
-            plotter.export_html(html_path)
+            plotter.reset_camera()
+            plotter.zoom_camera(0.9)
+            
+            html_abs_path = os.path.abspath("temp_viewer.html")
+            plotter.export_html(html_abs_path)
             
             # 6. Prepare Download
             st.session_state.final_stl_path = f"export/web_generated_{datetime.now().strftime('%H%M%S')}.stl"
@@ -128,9 +143,12 @@ col1, col2 = st.columns([3, 1])
 
 with col1:
     if os.path.exists("temp_viewer.html"):
-        with open("temp_viewer.html", 'r') as f:
+        import time
+        with open("temp_viewer.html", 'r', encoding='utf-8') as f:
             html_content = f.read()
-        components.html(html_content, height=600)
+        
+        # Using a direct HTML component with a unique key to bypass caching
+        st.components.v1.html(html_content, height=700, scrolling=True, key=str(time.time()))
     else:
         st.info("👈 Configure your lattice and click 'Generate' to visualize the 3D model.")
 
