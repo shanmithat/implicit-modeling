@@ -11,7 +11,7 @@ from config import CONFIG, get_frequency
 from core.implicit_base import Sphere
 from core.mesh_container import MeshSDF
 from core.analytics import calculate_volume_fraction, gibson_ashby_stiffness, estimate_mass
-from lattices.tpms import Gyroid, Intersection # Add Diamond if available
+from lattices.tpms import Gyroid, Diamond, HybridLattice, Intersection
 from lattices.graded_lattice import GradedLattice, linear_z_grading
 from export.stl_exporter import save_mesh_to_stl
 
@@ -34,7 +34,13 @@ st.subheader("Professional CAD Generation for Additive Manufacturing")
 st.sidebar.header("🛠️ Lattice Configuration")
 
 # Selection inputs
-lattice_type = st.sidebar.selectbox("Lattice Architecture", ["Gyroid", "Diamond (Standard)"])
+hybrid_mode = st.sidebar.toggle("🧬 Hybrid Mode (Meta-Materials)", value=False)
+if hybrid_mode:
+    st.sidebar.info("Blending Gyroid & Diamond Architectures")
+    blend_weight = st.sidebar.slider("Blend Weight (Gyroid <-> Diamond)", 0.0, 1.0, 0.5)
+    lattice_type = "Hybrid"
+else:
+    lattice_type = st.sidebar.selectbox("Lattice Architecture", ["Gyroid", "Diamond"])
 cell_size = st.sidebar.slider("Cell Size (mm)", 0.2, 5.0, 0.8)
 resolution = st.sidebar.slider("Mesh Resolution", 20, 150, 60)
 
@@ -73,7 +79,18 @@ if st.sidebar.button("🚀 Generate Structure"):
             # 2. Lattice Synthesis
             b = container.bounds
             freq = (2 * np.pi) / cell_size
-            base_lattice = Gyroid(frequency=freq)
+            
+            if hybrid_mode:
+                l1 = Gyroid(frequency=freq)
+                l2 = Diamond(frequency=freq)
+                base_lattice = HybridLattice(l1, l2, weight=blend_weight)
+                st.write(f"Synthesizing Hybrid Meta-Material (w={blend_weight:.2f})...")
+            else:
+                if lattice_type == "Gyroid":
+                    base_lattice = Gyroid(frequency=freq)
+                else:
+                    base_lattice = Diamond(frequency=freq)
+                st.write(f"Synthesizing {lattice_type} Architecture...")
             
             # Dynamic Z-bounds for grading
             grading = linear_z_grading(z_min=b[4], z_max=b[5], t_min=t_min, t_max=t_max)

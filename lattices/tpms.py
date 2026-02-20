@@ -7,46 +7,51 @@ class Gyroid(ImplicitSurface):
     The formula is sin(x)cos(y) + sin(y)cos(z) + sin(z)cos(x).
     """
     def __init__(self, frequency=1.0):
-        """
-        Initializes a Gyroid.
-        
-        Args:
-            frequency (float): Controls the density of the lattice structure.
-        """
         self.frequency = frequency
 
     def evaluate(self, x, y, z):
-        """
-        Evaluates the Gyroid implicit equation.
-        """
-        fx = self.frequency * x
-        fy = self.frequency * y
-        fz = self.frequency * z
-        
+        fx, fy, fz = self.frequency * x, self.frequency * y, self.frequency * z
         return (np.sin(fx) * np.cos(fy) +
                 np.sin(fy) * np.cos(fz) +
                 np.sin(fz) * np.cos(fx))
 
+class Diamond(ImplicitSurface):
+    """
+    Represents a Diamond (Schwarz D) TPMS structure.
+    Formula: sin(x)sin(y)sin(z) + sin(x)cos(y)cos(z) + cos(x)sin(y)cos(z) + cos(x)cos(y)sin(z)
+    """
+    def __init__(self, frequency=1.0):
+        self.frequency = frequency
+
+    def evaluate(self, x, y, z):
+        fx, fy, fz = self.frequency * x, self.frequency * y, self.frequency * z
+        return (np.sin(fx) * np.sin(fy) * np.sin(fz) + 
+                np.sin(fx) * np.cos(fy) * np.cos(fz) + 
+                np.cos(fx) * np.sin(fy) * np.cos(fz) + 
+                np.cos(fx) * np.cos(fy) * np.sin(fz))
+
+class HybridLattice(ImplicitSurface):
+    """
+    Blends two implicit surfaces using Linear Interpolation (LERP).
+    Result = (1 - w) * L1 + w * L2
+    """
+    def __init__(self, lattice1, lattice2, weight=0.5):
+        self.lattice1 = lattice1
+        self.lattice2 = lattice2
+        self.weight = np.clip(weight, 0.0, 1.0)
+
+    def evaluate(self, x, y, z):
+        val1 = self.lattice1.evaluate(x, y, z)
+        val2 = self.lattice2.evaluate(x, y, z)
+        return (1.0 - self.weight) * val1 + self.weight * val2
+
 class Intersection(ImplicitSurface):
     """
-    Represents the intersection of multiple implicit surfaces.
-    This is a boolean 'AND' operation, achieved by taking the maximum
-    of the individual surface evaluations.
+    Boolean 'AND' operation: clips the lattice to the container boundary.
     """
     def __init__(self, *surfaces):
-        """
-        Initializes an Intersection.
-        
-        Args:
-            *surfaces: A variable number of ImplicitSurface objects.
-        """
-        if not all(isinstance(s, ImplicitSurface) for s in surfaces):
-            raise TypeError("All arguments must be ImplicitSurface objects.")
         self.surfaces = surfaces
 
     def evaluate(self, x, y, z):
-        """
-        Evaluates the intersection by taking the maximum of all surfaces.
-        """
         evaluations = [s.evaluate(x, y, z) for s in self.surfaces]
         return np.maximum.reduce(evaluations)
