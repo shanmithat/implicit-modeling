@@ -142,13 +142,26 @@ if st.sidebar.button("🚀 Generate Structure"):
 col1, col2 = st.columns([3, 1])
 
 with col1:
-    if os.path.exists("temp_viewer.html"):
-        import time
-        with open("temp_viewer.html", 'r', encoding='utf-8') as f:
+    html_file = "temp_viewer.html"
+    if os.path.exists(html_file):
+        import base64
+        with open(html_file, 'r', encoding='utf-8') as f:
             html_content = f.read()
         
-        # Using a direct HTML component (removed 'key' as it's not supported in this method)
-        st.components.v1.html(html_content, height=700, scrolling=True)
+        # Display file size for debugging
+        st.caption(f"3D Scene Ready ({len(html_content)/1024:.1f} KB)")
+        
+        # Use base64 encoding to embed the HTML in a more robust iframe
+        try:
+            b64_html = base64.b64encode(html_content.encode('utf-8')).decode()
+            src_attr = f'data:text/html;base64,{b64_html}'
+            st.markdown(
+                f'<iframe src="{src_attr}" width="100%" height="700" style="border:none; border-radius:10px; background-color:#1e1e1e;"></iframe>', 
+                unsafe_allow_html=True
+            )
+        except Exception as e:
+            st.error(f"Viewer Error: {str(e)}")
+            st.components.v1.html(html_content, height=700, scrolling=True)
     else:
         st.info("👈 Configure your lattice and click 'Generate' to visualize the 3D model.")
 
