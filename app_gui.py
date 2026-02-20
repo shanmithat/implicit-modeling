@@ -147,8 +147,8 @@ with col1:
         with open("temp_viewer.html", 'r', encoding='utf-8') as f:
             html_content = f.read()
         
-        # Using a direct HTML component with a unique key to bypass caching
-        st.components.v1.html(html_content, height=700, scrolling=True, key=str(time.time()))
+        # Using a direct HTML component (removed 'key' as it's not supported in this method)
+        st.components.v1.html(html_content, height=700, scrolling=True)
     else:
         st.info("👈 Configure your lattice and click 'Generate' to visualize the 3D model.")
 
