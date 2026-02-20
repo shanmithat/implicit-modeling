@@ -8,6 +8,9 @@ from datetime import datetime
 # Ensure the current directory is in the Python path for local module imports
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
+# Import configuration
+from config import CONFIG, get_frequency
+
 # Import core framework
 from core.implicit_base import Sphere
 from core.mesh_container import MeshSDF
@@ -21,11 +24,14 @@ from lattices.graded_lattice import GradedLattice, linear_z_grading
 from visualization.renderer import Renderer
 from export.stl_exporter import save_mesh_to_stl
 
-def create_demo_container(filename="demo_container.stl"):
+def create_demo_container(filename=None):
     """
     Creates a sample STL container if one doesn't exist.
     A rounded cube provides a professional-looking demonstration.
     """
+    if filename is None:
+        filename = CONFIG["input_stl_path"]
+
     if not os.path.exists(filename):
         print(f"Creating demonstration STL container: {filename}")
         # Create a simple rounded box for the demo
@@ -39,26 +45,23 @@ def main():
     """
     Professional Demonstration Script: Conformal Graded Lattice Generation
     Workflow:
-    1. Define Container -> 2. Generate Lattice -> 3. Apply Grading -> 
-    4. Conformal Trimming -> 5. Visualization -> 6. Export
+    1. Load Config -> 2. Load Mesh -> 3. Define Graded Lattice -> 
+    4. Conformal Trimming -> 5. Analytics -> 6. Visualization -> 7. Export
     """
     print("="*60)
     print("      CADFEA: Conformal Graded Lattice Demonstration")
     print("="*60)
 
     # --- 1. SETUP PARAMETERS ---
-    RESOLUTION = 100       # High-resolution grid for mesh generation
-    CELL_SIZE = 0.8        # Physical size of a single lattice cell
-    Z_RANGE = (-1.0, 1.0)  # Vertical range for functional grading
+    RESOLUTION = CONFIG["resolution"]
+    Z_RANGE = CONFIG["z_range"]
+    GYROID_FREQUENCY = get_frequency()
     
     # Resolution Safety Check
-    if RESOLUTION > 150:
-        print(f"[SAFETY CHECK] WARNING: Resolution {RESOLUTION} is above the recommended threshold (150).")
+    if RESOLUTION > CONFIG["safety_threshold"]:
+        print(f"[SAFETY CHECK] WARNING: Resolution {RESOLUTION} is above the recommended threshold ({CONFIG['safety_threshold']}).")
         print("               This may lead to extreme memory usage or crashes.")
     
-    # Frequency = 2*PI / Cell_Size
-    GYROID_FREQUENCY = (2 * np.pi) / CELL_SIZE
-
     # --- 2. LOAD MESH CONTAINER ---
     # We use MeshSDF to treat a 3D model as an implicit boundary.
     container_file = create_demo_container()
@@ -79,13 +82,12 @@ def main():
     base_lattice = Gyroid(frequency=GYROID_FREQUENCY)
 
     # Define linear functional grading: 
-    # t=0.1 (Thin) at Z=-1.0 to t=0.5 (Thick) at Z=1.0
-    print("Applying functional grading (Z-Linear)...")
+    print(f"Applying functional grading (Z-Linear: t={CONFIG['t_min']} to t={CONFIG['t_max']})...")
     grading_pattern = linear_z_grading(
         z_min=Z_RANGE[0], 
         z_max=Z_RANGE[1], 
-        t_min=0.1, 
-        t_max=0.5
+        t_min=CONFIG["t_min"], 
+        t_max=CONFIG["t_max"]
     )
     graded_lattice = GradedLattice(base_lattice, grading_pattern)
 
@@ -98,8 +100,8 @@ def main():
     # Perform engineering calculations before rendering
     print("Performing engineering analytics...")
     b = container.bounds
-    vol_frac = estimate_volume_fraction(final_part, b, samples=50000)
-    est_stiffness = predict_stiffness(vol_frac, base_material_modulus=2500) # MPa (Aluminum-ish)
+    vol_frac = estimate_volume_fraction(final_part, b, samples=CONFIG["mc_samples"])
+    est_stiffness = predict_stiffness(vol_frac, base_material_modulus=CONFIG["base_material_modulus"])
     
     print("-" * 40)
     print(f"  Engineering Stats for Generated Lattice:")
@@ -115,21 +117,19 @@ def main():
     # Calculate render bounds slightly larger than the container
     render_bounds = (b[0]-0.2, b[1]+0.2, b[2]-0.2, b[3]+0.2, b[4]-0.2, b[5]+0.2)
     
-    # We will modify the renderer to return timing info or we will time it here.
-    # For now, let's time the whole process.
     final_mesh = renderer.render(
         surface=final_part,
         bounds=render_bounds,
         n_points=RESOLUTION,
-        level=0.0
+        level=CONFIG["level_set"]
     )
 
     # --- 7. EXPORT ---
     # Save the resulting high-quality mesh as a binary STL.
     if final_mesh is not None:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        export_filename = f"graded_structure_{timestamp}.stl"
-        export_path = os.path.join("export", export_filename)
+        export_filename = f"{CONFIG['export_prefix']}_{timestamp}.stl"
+        export_path = os.path.join(CONFIG["export_directory"], export_filename)
         print(f"Exporting to: {export_path}...")
         save_mesh_to_stl(final_mesh, export_path)
     
