@@ -112,34 +112,113 @@ if st.sidebar.button("🚀 Generate Structure"):
                 st.error("Lattice out of bounds or too thin to resolve. Try decreasing thickness or increasing resolution.")
                 st.stop()
 
-            # 5. Export for Viewer
-            plotter.set_background("#1e1e1e") # Dark Grey Background
-            plotter.add_mesh(mesh, color="lightblue", show_edges=True, smooth_shading=True)
-            
-            # Studio Lighting and Eye Dome Lighting
-            plotter.add_light(pv.Light(position=(2, 2, 5), intensity=1.5))
-            plotter.enable_eye_dome_lighting()
-            
-            # Center and Zoom
-            plotter.view_isometric()
-            plotter.reset_camera()
-            plotter.zoom_camera(0.9)
-            
-            # STANDALONE HTML EXPORT
+            # 5. Export for Viewer (Custom Robust Three.js Implementation)
+            st.write("Finalizing 3D Scene...")
             VIEWER_PATH = os.path.abspath("temp_viewer.html")
             FALLBACK_PATH = os.path.abspath("fallback_preview.png")
             
-            # ALWAYS save a fallback screenshot for safety
+            # Save fallback screenshot
+            plotter.set_background("#1e1e1e")
+            plotter.add_mesh(mesh, color="lightblue", show_edges=True)
+            plotter.reset_camera()
             plotter.screenshot(FALLBACK_PATH)
+            plotter.close()
+
+            # Generate STL for the viewer
+            temp_stl = "temp_view_data.stl"
+            save_mesh_to_stl(mesh, temp_stl)
             
-            # Attempt 3D HTML export
-            try:
-                plotter.export_html(VIEWER_PATH)
-            except:
-                pass # Fallback will be used if this fails
+            import base64
+            with open(temp_stl, "rb") as f:
+                stl_base64 = base64.b64encode(f.read()).decode('utf-8')
             
-            plotter.close() # Release file lock immediately
+            # Create a professional Standalone Three.js Viewer
+            html_template = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>ImplicitLattice Viewer</title>
+                <style>
+                    body {{ margin: 0; background-color: #1e1e1e; overflow: hidden; font-family: sans-serif; }}
+                    canvas {{ width: 100%; height: 100%; }}
+                    #info {{ position: absolute; top: 10px; width: 100%; text-align: center; color: #555; pointer-events: none; }}
+                </style>
+            </head>
+            <body>
+                <div id="info">Interactive 3D Preview (Orbit: Left Click, Zoom: Scroll)</div>
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+                <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+                <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+                <script>
+                    const scene = new THREE.Scene();
+                    scene.background = new THREE.Color(0x1e1e1e);
+                    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+                    const renderer = new THREE.WebGLRenderer({{ antialias: true }});
+                    renderer.setSize(window.innerWidth, window.innerHeight);
+                    document.body.appendChild(renderer.domElement);
+
+                    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+                    controls.enableDamping = true;
+
+                    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+                    scene.add(ambientLight);
+                    const light1 = new THREE.DirectionalLight(0xffffff, 1);
+                    light1.position.set(1, 1, 2);
+                    scene.add(light1);
+                    const light2 = new THREE.DirectionalLight(0xffffff, 0.5);
+                    light2.position.set(-1, -1, -2);
+                    scene.add(light2);
+
+                    const loader = new THREE.STLLoader();
+                    const stlData = atob("{stl_base64}");
+                    const bytes = new Uint8Array(stlData.length);
+                    for (let i = 0; i < stlData.length; i++) {{
+                        bytes[i] = stlData.charCodeAt(i);
+                    }}
+                    
+                    const geometry = loader.parse(bytes.buffer);
+                    const material = new THREE.MeshPhongMaterial({{ 
+                        color: 0xadd8e6, 
+                        specular: 0x111111, 
+                        shininess: 100,
+                        flatShading: false
+                    }});
+                    const mesh = new THREE.Mesh(geometry, material);
+                    
+                    geometry.computeBoundingBox();
+                    const center = new THREE.Vector3();
+                    geometry.boundingBox.getCenter(center);
+                    mesh.position.sub(center);
+                    scene.add(mesh);
+                    
+                    const size = new THREE.Vector3();
+                    geometry.boundingBox.getSize(size);
+                    const maxDim = Math.max(size.x, size.y, size.z);
+                    camera.position.set(maxDim*1.5, maxDim*1.5, maxDim*1.5);
+                    camera.lookAt(0, 0, 0);
+
+                    function animate() {{
+                        requestAnimationFrame(animate);
+                        controls.update();
+                        renderer.render(scene, camera);
+                    }}
+                    animate();
+
+                    window.addEventListener('resize', () => {{
+                        camera.aspect = window.innerWidth / window.innerHeight;
+                        camera.updateProjectionMatrix();
+                        renderer.setSize(window.innerWidth, window.innerHeight);
+                    }});
+                </script>
+            </body>
+            </html>
+            """
             
+            with open(VIEWER_PATH, "w", encoding="utf-8") as f:
+                f.write(html_template)
+            
+            if os.path.exists(temp_stl): os.remove(temp_stl)
+
             # 6. Prepare Download
             st.session_state.final_stl_path = f"export/web_generated_{datetime.now().strftime('%H%M%S')}.stl"
             os.makedirs("export", exist_ok=True)
@@ -162,20 +241,13 @@ with col1:
             with open(VIEWER_PATH, 'r', encoding='utf-8') as f:
                 html_data = f.read()
             
-            # Check for the 404 error page from VTK.js/Trame
-            # Only show errors if we HAVE data but it's the wrong data
-            if "404 | VTK.js" in html_data or len(html_data) < 1000:
-                if os.path.exists(FALLBACK_PATH):
-                    st.image(FALLBACK_PATH, caption="3D Preview (Static Fallback)", use_container_width=True)
-                    st.warning("🔄 3D Interactivity unavailable. Showing static preview.")
-                else:
-                    st.error("❌ 3D Generation failed. Please try a lower resolution.")
-            else:
-                # Standard Streamlit Component
-                st.components.v1.html(html_data, height=700, scrolling=True)
+            # Since we generate our own HTML, we don't expect 404 anymore
+            st.components.v1.html(html_data, height=700, scrolling=False)
             
         except Exception as e:
             st.error(f"Viewer Error: {str(e)}")
+            if os.path.exists(FALLBACK_PATH):
+                st.image(FALLBACK_PATH, caption="3D Preview (Static Fallback)")
     else:
         # Default state BEFORE any generation has happened
         st.info("👈 Configure your lattice and click 'Generate' to visualize the 3D model.")
