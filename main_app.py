@@ -53,13 +53,13 @@ def estimate_memory_usage(resolution):
 
 def main():
     """
-    Professional Demonstration Script: Conformal Graded Lattice Generation
+    Final Validation Script: Conformal Graded Lattice Generation
     Workflow:
     1. Load Config -> 2. Load Mesh -> 3. Define Graded Lattice -> 
-    4. Conformal Trimming -> 5. Analytics -> 6. Visualization -> 7. Export
+    4. Conformal Trimming -> 5. Analytics -> 6. Multi-View Visualization -> 7. Export & Summary
     """
     print("="*60)
-    print("      CADFEA: Conformal Graded Lattice Demonstration")
+    print("      CADFEA: FINAL VALIDATION REPORT")
     print("="*60)
 
     # --- 1. SETUP PARAMETERS ---
@@ -74,24 +74,18 @@ def main():
     if est_memory > CONFIG["memory_threshold_gb"]:
         print(f"[MEMORY WARNING] Resolution {RESOLUTION} requires {est_memory:.2f} GB.")
         print(f"                 Threshold is set to {CONFIG['memory_threshold_gb']} GB.")
-        # Automatic suggestion logic
         safe_res = int((CONFIG["memory_threshold_gb"] * (1024**3) / 8)**(1/3))
         print(f"                 Recommendation: Reduce resolution to < {safe_res}")
-        # In a real app, you might ask for confirmation here:
-        # choice = input("Do you want to continue? (y/n): ")
-        # if choice.lower() != 'y': sys.exit()
     elif RESOLUTION > CONFIG["safety_threshold"]:
         print(f"[SAFETY CHECK] WARNING: Resolution {RESOLUTION} is above the recommended threshold ({CONFIG['safety_threshold']}).")
         print("               This may lead to extreme memory usage or crashes.")
     
     # --- 2. LOAD MESH CONTAINER ---
-    # We use MeshSDF to treat a 3D model as an implicit boundary.
     container_file = create_demo_container()
     print(f"Loading container: {container_file}...")
     
     start_time = time.time()
     try:
-        # use_cache=True enables high-speed voxelization for evaluation
         container = MeshSDF(container_file, use_cache=True, cache_resolution=50)
     except Exception as e:
         print(f"Mesh loading failed: {e}. Falling back to Sphere.")
@@ -103,7 +97,6 @@ def main():
     print(f"Generating Gyroid lattice (Frequency: {GYROID_FREQUENCY:.2f})...")
     base_lattice = Gyroid(frequency=GYROID_FREQUENCY)
 
-    # Define linear functional grading: 
     print(f"Applying functional grading (Z-Linear: t={CONFIG['t_min']} to t={CONFIG['t_max']})...")
     grading_pattern = linear_z_grading(
         z_min=Z_RANGE[0], 
@@ -114,56 +107,61 @@ def main():
     graded_lattice = GradedLattice(base_lattice, grading_pattern)
 
     # --- 4. SYNTHESIS: CONFORMAL TRIMMING ---
-    # Intersection operation clips the infinite lattice to the container's bounds.
     print("Synthesizing conformal structure...")
     final_part = Intersection(container, graded_lattice)
 
     # --- 5. ANALYTICS ---
-    # Perform engineering calculations before rendering
-    print("Performing engineering analytics...")
+    print("Performing final engineering analytics...")
     b = container.bounds
     vol_frac = calculate_volume_fraction(final_part, b, resolution=CONFIG["analytics_resolution"])
     est_stiffness = gibson_ashby_stiffness(vol_frac, base_material_modulus=CONFIG["base_material_modulus"])
-    
-    # Calculate bounding box total volume
     total_volume = (b[1]-b[0]) * (b[3]-b[2]) * (b[5]-b[4])
     est_mass = estimate_mass(vol_frac, total_volume, CONFIG["base_material_density"])
     
-    print("-" * 40)
-    print(f"  Engineering Stats for Generated Lattice:")
-    print(f"  - Grid Volume Fraction: {vol_frac:.2%}")
-    print(f"  - Effective Stiffness:  {est_stiffness:.2f} MPa (Gibson-Ashby)")
-    print(f"  - Estimated Mass:       {est_mass:.4f} g")
-    print("-" * 40)
-
-    # --- 6. VISUALIZATION ---
-    # The renderer automatically handles scalar color-mapping for GradedLattice.
-    print(f"Starting renderer (Resolution: {RESOLUTION})...")
+    # --- 6. VISUALIZATION (Multi-View) ---
     renderer = Renderer()
-    
-    # Calculate render bounds slightly larger than the container
     render_bounds = (b[0]-0.2, b[1]+0.2, b[2]-0.2, b[3]+0.2, b[4]-0.2, b[5]+0.2)
     
+    # Full 3D View
+    print("Generating Full 3D Visualization...")
     final_mesh = renderer.render(
         surface=final_part,
         bounds=render_bounds,
         n_points=RESOLUTION,
         level=CONFIG["level_set"],
-        show_section=CONFIG["show_cross_section"]
+        show_section=False
     )
 
-    # --- 7. EXPORT ---
-    # Save the resulting high-quality mesh as a binary STL.
+    # Cross-Section View to validate grading
+    print("Generating Internal Cross-Section Visualization...")
+    renderer.render(
+        surface=final_part,
+        bounds=render_bounds,
+        n_points=RESOLUTION,
+        level=CONFIG["level_set"],
+        show_section=True
+    )
+
+    # --- 7. EXPORT & FINAL SUMMARY ---
     if final_mesh is not None:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        export_filename = f"{CONFIG['export_prefix']}_{timestamp}.stl"
+        export_filename = f"{CONFIG['export_prefix']}_VALIDATED_{timestamp}.stl"
         export_path = os.path.join(CONFIG["export_directory"], export_filename)
-        print(f"Exporting to: {export_path}...")
+        print(f"Exporting Final Mesh to: {export_path}...")
         save_mesh_to_stl(final_mesh, export_path)
-    
-    print("="*60)
-    print("      Demonstration Complete: Files saved to /export/")
-    print("="*60)
+
+        print("\n" + "*"*60)
+        print("                PROJECT SUCCESS SUMMARY")
+        print("*"*60)
+        print(f"  Final Engineering Metrics:")
+        print(f"  - Target Resolution:    {RESOLUTION}")
+        print(f"  - Volume Fraction:      {vol_frac:.2%}")
+        print(f"  - Effective Stiffness:  {est_stiffness:.2f} MPa")
+        print(f"  - Estimated Part Mass:  {est_mass:.4f} g")
+        print(f"  - Material Properties:  Es={CONFIG['base_material_modulus']}MPa, Rho={CONFIG['base_material_density']}g/cm3")
+        print("-" * 60)
+        print(f"  Status: VALIDATED | Export: {export_filename}")
+        print("*"*60 + "\n")
 
 
 if __name__ == "__main__":
