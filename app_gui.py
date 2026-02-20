@@ -125,9 +125,16 @@ if st.sidebar.button("🚀 Generate Structure"):
             plotter.reset_camera()
             plotter.zoom_camera(0.9)
             
-            # ABSOLUTE PATH Consistency
+            # STANDALONE HTML EXPORT
             VIEWER_PATH = os.path.abspath("temp_viewer.html")
-            plotter.export_html(VIEWER_PATH)
+            # In some PyVista versions, export_html with trame produces a 404 if not careful.
+            # We try to use the most basic export possible.
+            try:
+                plotter.export_html(VIEWER_PATH)
+            except:
+                st.warning("3D Export failed. Using static screenshot fallback.")
+                plotter.screenshot("fallback_preview.png")
+            
             plotter.close() # Release file lock immediately
             
             # 6. Prepare Download
@@ -145,17 +152,23 @@ col1, col2 = st.columns([3, 1])
 
 with col1:
     VIEWER_PATH = os.path.abspath("temp_viewer.html")
+    FALLBACK_PATH = os.path.abspath("fallback_preview.png")
+    
     if os.path.exists(VIEWER_PATH):
         try:
-            # Read content DIRECTLY to bypass 404/URL issues
             with open(VIEWER_PATH, 'r', encoding='utf-8') as f:
                 html_data = f.read()
             
-            # Display file size for debugging
-            st.caption(f"3D Scene Ready ({len(html_data)/1024:.1f} KB)")
-            
-            # Standard Streamlit Component (most stable for large strings)
-            components.html(html_data, height=700, scrolling=True)
+            # Check for the 404 error page from VTK.js/Trame
+            if "404 | VTK.js" in html_data or len(html_data) < 1000:
+                if os.path.exists(FALLBACK_PATH):
+                    st.image(FALLBACK_PATH, caption="High-Quality 3D Preview (Static Fallback)", use_container_width=True)
+                    st.warning("🔄 3D Interactivity unavailable in current environment. Showing static preview.")
+                else:
+                    st.error("❌ 3D Generation failed. Please try a lower resolution.")
+            else:
+                # Standard Streamlit Component
+                components.html(html_data, height=700, scrolling=True)
             
         except Exception as e:
             st.error(f"Viewer Error: {str(e)}")
