@@ -1,0 +1,6 @@
+libgl1-mesa-dev
+xvfb
+libglx-mesa0
+libglu1-mesa
+libxi6
+libxrender1
