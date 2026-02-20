@@ -23,7 +23,9 @@ CONFIG = {
     
     # --- Analytics ---
     "mc_samples": 50000,             # Number of Monte Carlo samples for volume fraction
+    "analytics_resolution": 60,      # Grid resolution for grid-based volume fraction
     "base_material_modulus": 2500.0, # MPa (e.g., Aluminum-ish material)
+    "base_material_density": 2.7,    # g/cm3 (e.g., Aluminum)
     
     # --- Visualization ---
     "show_edges": True,

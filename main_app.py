@@ -14,7 +14,7 @@ from config import CONFIG, get_frequency
 # Import core framework
 from core.implicit_base import Sphere
 from core.mesh_container import MeshSDF
-from core.analytics import estimate_volume_fraction, predict_stiffness
+from core.analytics import calculate_volume_fraction, gibson_ashby_stiffness, estimate_mass
 
 # Import lattice structures and grading patterns
 from lattices.tpms import Gyroid, Intersection
@@ -100,13 +100,18 @@ def main():
     # Perform engineering calculations before rendering
     print("Performing engineering analytics...")
     b = container.bounds
-    vol_frac = estimate_volume_fraction(final_part, b, samples=CONFIG["mc_samples"])
-    est_stiffness = predict_stiffness(vol_frac, base_material_modulus=CONFIG["base_material_modulus"])
+    vol_frac = calculate_volume_fraction(final_part, b, resolution=CONFIG["analytics_resolution"])
+    est_stiffness = gibson_ashby_stiffness(vol_frac, base_material_modulus=CONFIG["base_material_modulus"])
+    
+    # Calculate bounding box total volume
+    total_volume = (b[1]-b[0]) * (b[3]-b[2]) * (b[5]-b[4])
+    est_mass = estimate_mass(vol_frac, total_volume, CONFIG["base_material_density"])
     
     print("-" * 40)
     print(f"  Engineering Stats for Generated Lattice:")
-    print(f"  - Estimated Volume Fraction: {vol_frac:.2%}")
-    print(f"  - Predicted Stiffness (E*):  {est_stiffness:.2f} MPa")
+    print(f"  - Grid Volume Fraction: {vol_frac:.2%}")
+    print(f"  - Effective Stiffness:  {est_stiffness:.2f} MPa (Gibson-Ashby)")
+    print(f"  - Estimated Mass:       {est_mass:.4f} g")
     print("-" * 40)
 
     # --- 6. VISUALIZATION ---
