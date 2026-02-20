@@ -127,13 +127,16 @@ if st.sidebar.button("🚀 Generate Structure"):
             
             # STANDALONE HTML EXPORT
             VIEWER_PATH = os.path.abspath("temp_viewer.html")
-            # In some PyVista versions, export_html with trame produces a 404 if not careful.
-            # We try to use the most basic export possible.
+            FALLBACK_PATH = os.path.abspath("fallback_preview.png")
+            
+            # ALWAYS save a fallback screenshot for safety
+            plotter.screenshot(FALLBACK_PATH)
+            
+            # Attempt 3D HTML export
             try:
                 plotter.export_html(VIEWER_PATH)
             except:
-                st.warning("3D Export failed. Using static screenshot fallback.")
-                plotter.screenshot("fallback_preview.png")
+                pass # Fallback will be used if this fails
             
             plotter.close() # Release file lock immediately
             
@@ -160,20 +163,26 @@ with col1:
                 html_data = f.read()
             
             # Check for the 404 error page from VTK.js/Trame
+            # Only show errors if we HAVE data but it's the wrong data
             if "404 | VTK.js" in html_data or len(html_data) < 1000:
                 if os.path.exists(FALLBACK_PATH):
-                    st.image(FALLBACK_PATH, caption="High-Quality 3D Preview (Static Fallback)", use_container_width=True)
-                    st.warning("🔄 3D Interactivity unavailable in current environment. Showing static preview.")
+                    st.image(FALLBACK_PATH, caption="3D Preview (Static Fallback)", use_container_width=True)
+                    st.warning("🔄 3D Interactivity unavailable. Showing static preview.")
                 else:
                     st.error("❌ 3D Generation failed. Please try a lower resolution.")
             else:
                 # Standard Streamlit Component
-                components.html(html_data, height=700, scrolling=True)
+                st.components.v1.html(html_data, height=700, scrolling=True)
             
         except Exception as e:
             st.error(f"Viewer Error: {str(e)}")
     else:
+        # Default state BEFORE any generation has happened
         st.info("👈 Configure your lattice and click 'Generate' to visualize the 3D model.")
+        
+        # If an old fallback exists, we can show it as a teaser or just keep it clean
+        if os.path.exists(FALLBACK_PATH):
+            st.image(FALLBACK_PATH, caption="Previous Generation Preview", use_container_width=True)
 
 with col2:
     st.subheader("📊 Part Analytics")
