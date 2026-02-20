@@ -41,6 +41,16 @@ def create_demo_container(filename=None):
         container.save(filename)
     return filename
 
+def estimate_memory_usage(resolution):
+    """
+    Estimates the memory usage for a voxel grid of a given resolution.
+    Assumes float64 (8 bytes per point).
+    """
+    total_points = resolution ** 3
+    memory_bytes = total_points * 8
+    memory_gb = memory_bytes / (1024 ** 3)
+    return memory_gb
+
 def main():
     """
     Professional Demonstration Script: Conformal Graded Lattice Generation
@@ -57,8 +67,20 @@ def main():
     Z_RANGE = CONFIG["z_range"]
     GYROID_FREQUENCY = get_frequency()
     
-    # Resolution Safety Check
-    if RESOLUTION > CONFIG["safety_threshold"]:
+    # Memory and Resolution Safety Check
+    est_memory = estimate_memory_usage(RESOLUTION)
+    print(f"Estimated Voxel Grid Memory: {est_memory:.2f} GB")
+
+    if est_memory > CONFIG["memory_threshold_gb"]:
+        print(f"[MEMORY WARNING] Resolution {RESOLUTION} requires {est_memory:.2f} GB.")
+        print(f"                 Threshold is set to {CONFIG['memory_threshold_gb']} GB.")
+        # Automatic suggestion logic
+        safe_res = int((CONFIG["memory_threshold_gb"] * (1024**3) / 8)**(1/3))
+        print(f"                 Recommendation: Reduce resolution to < {safe_res}")
+        # In a real app, you might ask for confirmation here:
+        # choice = input("Do you want to continue? (y/n): ")
+        # if choice.lower() != 'y': sys.exit()
+    elif RESOLUTION > CONFIG["safety_threshold"]:
         print(f"[SAFETY CHECK] WARNING: Resolution {RESOLUTION} is above the recommended threshold ({CONFIG['safety_threshold']}).")
         print("               This may lead to extreme memory usage or crashes.")
     

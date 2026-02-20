@@ -7,6 +7,7 @@ CONFIG = {
     # --- Grid and Resolution ---
     "resolution": 100,               # High-resolution grid for mesh generation
     "safety_threshold": 150,         # Warn if resolution is above this value
+    "memory_threshold_gb": 2.0,      # Maximum estimated memory (GB) before warning
     
     # --- Lattice Geometry ---
     "cell_size": 0.8,                # Physical size of a single lattice cell (mm/cm)
