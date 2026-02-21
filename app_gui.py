@@ -2,7 +2,10 @@ import streamlit as st
 import pyvista as pv
 import numpy as np
 import os
+import sys
+
 import tempfile
+import base64
 from datetime import datetime
 import streamlit.components.v1 as components
 
@@ -12,46 +15,214 @@ from core.implicit_base import Sphere
 from core.mesh_container import MeshSDF
 from core.analytics import calculate_volume_fraction, gibson_ashby_stiffness, estimate_mass
 from lattices.tpms import Gyroid, Diamond, HybridLattice, Intersection
-from lattices.graded_lattice import GradedLattice, linear_z_grading
+from lattices.graded_lattice import GradedLattice, linear_z_grading, point_attractor_grading
 from export.stl_exporter import save_mesh_to_stl
 
 # --- STREAMLIT UI SETUP ---
-st.set_page_config(page_title="ImplicitLattice Engine", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="ImplicitLattice | Engine", layout="wide", initial_sidebar_state="expanded")
 
-# Apply a professional dark theme style
+# --- SLEEK MONOCHROME THEME INJECTION ---
 st.markdown("""
     <style>
-    .main { background-color: #0e1117; color: #ffffff; }
-    .stButton>button { width: 100%; border-radius: 5px; height: 3em; background-color: #4b5cf2; color: white; }
-    .stDownloadButton>button { width: 100%; border-radius: 5px; height: 3em; background-color: #28a745; color: white; }
+    /* 1. CONTAINER BLACKOUT */
+    :root {
+        --primary-color: #00E5FF !important;
+    }
+
+    html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"], [data-testid="stSidebar"], [data-testid="stSidebarUserContent"] {
+        background-color: #000000 !important;
+        color: #FFFFFF !important;
+    }
+
+    /* Target the vertical blocks and their direct children to ensure black background between widgets */
+    [data-testid="stVerticalBlock"] > div {
+        background-color: #000000 !important;
+    }
+
+    /* 2. REVERTED NAVIGATION (SAFELY ENFORCING TYPOGRAPHY) */
+    .stMarkdown, p, label, .stMetricValue {
+        font-family: 'Helvetica', 'Arial', sans-serif !important;
+    }
+
+    /* Target main text containers but avoid interface buttons/icons */
+    [data-testid="stAppViewContainer"] {
+        font-family: 'Helvetica', 'Arial', sans-serif !important;
+    }
+
+    /* 3. SLIDER VISIBILITY (RESTORATION) */
+    /* The track line */
+    div[data-baseweb="slider"] > div:first-child > div:first-child {
+        background: #00E5FF !important;
+    }
+    /* The secondary track (unused part) */
+    div[data-baseweb="slider"] > div:first-child {
+        background-color: #222222 !important;
+    }
+    /* The handle (thumb) */
+    div[data-baseweb="slider"] [role="slider"] {
+        background-color: #00E5FF !important;
+        border: 2px solid #FFFFFF !important;
+        box-shadow: 0 0 10px rgba(0, 229, 255, 0.8) !important;
+    }
+    /* Slider value text */
+    div[data-testid="stSlider"] div[data-testid="stMarkdownContainer"] p {
+        color: #00E5FF !important;
+        font-weight: 600 !important;
+    }
+
+    /* 4. NUMERIC INPUT (+/-) */
+    button[data-testid="stNumericInputStepUp"], 
+    button[data-testid="stNumericInputStepDown"] {
+        background-color: transparent !important;
+        color: #00E5FF !important;
+        border: 1px solid #333333 !important;
+    }
+    button[data-testid="stNumericInputStepUp"]:hover, 
+    button[data-testid="stNumericInputStepDown"]:hover {
+        border-color: #00E5FF !important;
+        background-color: rgba(0, 229, 255, 0.1) !important;
+    }
+    button[data-testid="stNumericInputStepUp"] svg, 
+    button[data-testid="stNumericInputStepDown"] svg {
+        fill: #00E5FF !important;
+    }
+
+    /* Input Box */
+    div[data-baseweb="input"] {
+        background-color: #080808 !important;
+        border: 1px solid #222 !important;
+    }
+    div[data-baseweb="input"]:focus-within {
+        border-color: #00E5FF !important;
+        box-shadow: 0 0 10px rgba(0, 229, 255, 0.3) !important;
+    }
+    input {
+        color: #00E5FF !important;
+    }
+
+    /* 5. PRIMARY GENERATE BUTTON */
+    div.stButton > button:first-child {
+        background-color: #000000 !important;
+        color: #00E5FF !important;
+        border: 1px solid #00E5FF !important;
+        border-radius: 2px !important;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        box-shadow: 0 0 10px rgba(0, 229, 255, 0.1);
+        width: 100%;
+        height: 3em;
+    }
+    div.stButton > button:first-child:hover {
+        background-color: rgba(0, 229, 255, 0.1) !important;
+        box-shadow: 0 0 20px rgba(0, 229, 255, 0.3);
+        color: #FFFFFF !important;
+    }
+
+    /* 6. METRICS & STATUS */
+    [data-testid="stMetricValue"] {
+        color: #FFFFFF !important;
+        border-bottom: 1px solid #00E5FF;
+        box-shadow: 0 4px 10px -5px rgba(0, 229, 255, 0.8);
+    }
+    [data-testid="stMetricLabel"] {
+        color: #555555 !important;
+        font-size: 0.7rem !important;
+    }
+
+    div[data-testid="stStatusWidget"] {
+        border: 1px solid #00E5FF !important;
+        background-color: #000000 !important;
+    }
+    div[data-testid="stStatusWidget"] [data-testid="stMarkdownContainer"] p {
+        color: #00E5FF !important;
+        font-family: monospace;
+    }
+
+    /* 7. UTILITIES & CLEANUP */
+    hr { border-top: 1px solid #1A1A1A !important; }
+    #MainMenu, footer { visibility: hidden; }
+    header { visibility: visible !important; background: rgba(0,0,0,0.5) !important; }
+    
+    /* Ensure the sidebar toggle is ALWAYS visible and Cyber Blue */
+    button[data-testid="collapsedControl"] {
+        visibility: visible !important;
+        display: block !important;
+        color: #00E5FF !important;
+    }
+    
+    /* Sidebar Border */
+    section[data-testid="stSidebar"] {
+        border-right: 1px solid #222 !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🛡️ ImplicitLattice: Function-Defined Modeling Engine")
-st.subheader("Professional CAD Generation for Additive Manufacturing")
+st.title("IMPLICIT LATTICE")
+st.caption("DIGITAL TWIN SYNTHESIS ENGINE | v2.0")
 
 # --- SIDEBAR: DESIGN INPUTS ---
-st.sidebar.header("🛠️ Lattice Configuration")
+st.sidebar.markdown("### CONFIGURATION")
+
+# Container Upload (Moved up for scope visibility)
+st.sidebar.markdown("#### BOUNDARY MESH")
+uploaded_file = st.sidebar.file_uploader("UPLOAD STL", type=["stl"], label_visibility="collapsed")
+
+st.sidebar.markdown("---")
 
 # Selection inputs
-hybrid_mode = st.sidebar.toggle("🧬 Hybrid Mode (Meta-Materials)", value=False)
+st.sidebar.markdown("#### ARCHITECTURE")
+hybrid_mode = st.sidebar.toggle("HYBRID (GYROID/DIAMOND)", value=False)
 if hybrid_mode:
-    st.sidebar.info("Blending Gyroid & Diamond Architectures")
-    blend_weight = st.sidebar.slider("Blend Weight (Gyroid <-> Diamond)", 0.0, 1.0, 0.5)
+    blend_weight = st.sidebar.slider("BLEND WEIGHT", 0.0, 1.0, 0.5)
     lattice_type = "Hybrid"
 else:
-    lattice_type = st.sidebar.selectbox("Lattice Architecture", ["Gyroid", "Diamond"])
-cell_size = st.sidebar.slider("Cell Size (mm)", 0.2, 5.0, 0.8)
-resolution = st.sidebar.slider("Mesh Resolution", 20, 150, 60)
+    lattice_type = st.sidebar.selectbox("LATTICE TYPE", ["Gyroid", "Diamond"])
+cell_size = st.sidebar.slider("CELL SIZE (MM)", 0.2, 5.0, 0.8)
+resolution = st.sidebar.slider("RESOLUTION", 20, 150, 60)
+slice_model = st.sidebar.toggle("INTERNAL SECTION (X-Z)", value=False)
 
 st.sidebar.markdown("---")
-st.sidebar.header("📐 Grading Parameters")
-t_min = st.sidebar.number_input("Min Thickness (t_min)", 0.05, 1.0, 0.1)
-t_max = st.sidebar.number_input("Max Thickness (t_max)", 0.05, 1.0, 0.5)
+st.sidebar.markdown("#### GRADING")
+grading_mode = st.sidebar.selectbox("STRATEGY", ["Linear Z-Grading", "Point Attractor (Reinforcement)"])
+t_min = st.sidebar.number_input("MIN THICKNESS", 0.05, 1.0, 0.1)
+t_max = st.sidebar.number_input("MAX THICKNESS", 0.05, 1.0, 0.5)
+
+# Attractor Point State
+if "att_x" not in st.session_state: st.session_state.att_x = 0.0
+if "att_y" not in st.session_state: st.session_state.att_y = 0.0
+if "att_z" not in st.session_state: st.session_state.att_z = 0.0
+
+if grading_mode == "Point Attractor (Reinforcement)":
+    st.sidebar.markdown("#### ATTRACTOR COORDINATES")
+    col1, col2, col3 = st.sidebar.columns(3)
+    ax = col1.number_input("X", value=st.session_state.att_x, format="%.2f", key="input_ax")
+    ay = col2.number_input("Y", value=st.session_state.att_y, format="%.2f", key="input_ay")
+    az = col3.number_input("Z", value=st.session_state.att_z, format="%.2f", key="input_az")
+    attractor_radius = st.sidebar.slider("INFLUENCE RADIUS", 0.1, 20.0, 5.0)
+    
+    if st.sidebar.button("CALC CENTER"):
+        # Auto-calculate center from container
+        if uploaded_file:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".stl") as tmp:
+                tmp.write(uploaded_file.getvalue())
+                tmp_path = tmp.name
+            temp_mesh = pv.read(tmp_path)
+            b = temp_mesh.bounds
+            st.session_state.att_x = (b[0] + b[1]) / 2
+            st.session_state.att_y = (b[2] + b[3]) / 2
+            st.session_state.att_z = (b[4] + b[5]) / 2
+            os.remove(tmp_path)
+            st.rerun()
+        else:
+            st.session_state.att_x = 0.0
+            st.session_state.att_y = 0.0
+            st.session_state.att_z = 0.0
+            st.rerun()
+else:
+    # Set defaults for Linear Z if needed, though they aren't used in that mode's UI
+    ax, ay, az, attractor_radius = 0.0, 0.0, 0.0, 0.0
 
 st.sidebar.markdown("---")
-st.sidebar.header("📁 Container STL")
-uploaded_file = st.sidebar.file_uploader("Upload Boundary Mesh (STL)", type=["stl"])
 
 # --- SESSION STATE FOR PERSISTENCE ---
 if "final_stl_path" not in st.session_state:
@@ -62,8 +233,8 @@ if "mass" not in st.session_state:
     st.session_state.mass = 0.0
 
 # --- MAIN GENERATION LOGIC ---
-if st.sidebar.button("🚀 Generate Structure"):
-    with st.status("🛠️ Engineering Lattice...", expanded=True) as status:
+if st.sidebar.button("GENERATE STRUCTURE"):
+    with st.status("ENGINEERING LATTICE...", expanded=True) as status:
         try:
             # 1. Handle Container
             if uploaded_file:
@@ -92,8 +263,15 @@ if st.sidebar.button("🚀 Generate Structure"):
                     base_lattice = Diamond(frequency=freq)
                 st.write(f"Synthesizing {lattice_type} Architecture...")
             
-            # Dynamic Z-bounds for grading
-            grading = linear_z_grading(z_min=b[4], z_max=b[5], t_min=t_min, t_max=t_max)
+            # Apply Grading Strategy
+            if grading_mode == "Point Attractor (Reinforcement)":
+                st.write(f"Applying Reinforcement Point at ({ax:.2f}, {ay:.2f}, {az:.2f})...")
+                # Wrap it in a function that GradedLattice expects (x, y, z)
+                grading = lambda x, y, z: point_attractor_grading((x, y, z), (ax, ay, az), attractor_radius, t_min, t_max)
+            else:
+                st.write(f"Applying Linear Z-Grading from {b[4]:.2f} to {b[5]:.2f}...")
+                grading = linear_z_grading(z_min=b[4], z_max=b[5], t_min=t_min, t_max=t_max)
+            
             graded = GradedLattice(base_lattice, grading)
             final_part = Intersection(container, graded)
 
@@ -129,14 +307,34 @@ if st.sidebar.button("🚀 Generate Structure"):
                 st.error("Lattice out of bounds or too thin to resolve. Try decreasing thickness or increasing resolution.")
                 st.stop()
 
+            # --- COLOR BY THICKNESS ---
+            # Evaluate thickness function at mesh vertices
+            # Note: 'grading' is a lambda that takes (x, y, z)
+            m_pts = mesh.points
+            thickness_scalars = grading(m_pts[:,0], m_pts[:,1], m_pts[:,2])
+            
+            # Normalize for colormap (t_min to t_max)
+            t_range = t_max - t_min if t_max > t_min else 1.0
+            norm_thickness = np.clip((thickness_scalars - t_min) / t_range, 0, 1)
+            
+            # Create a simple 'Viridis-like' colormap (Purple to Yellow)
+            # We'll use this to color the PyVista plotter and pass to Three.js
+            mesh.point_data["thickness"] = thickness_scalars
+
+            # --- CLIPPING ---
+            if slice_model:
+                st.write("Slicing model for internal inspection...")
+                mesh = mesh.clip(normal='y', origin=(0, (b[2]+b[3])/2, 0))
+
             # 5. Export for Viewer (Custom Robust Three.js Implementation)
             st.write("Finalizing 3D Scene...")
             VIEWER_PATH = os.path.abspath("temp_viewer.html")
             FALLBACK_PATH = os.path.abspath("fallback_preview.png")
             
             # Save fallback screenshot
-            plotter.set_background("#1e1e1e")
-            plotter.add_mesh(mesh, color="lightblue", show_edges=True)
+            plotter.set_background("#000000")
+            # Reverting to 'plasma' for the 'old' professional gradient look
+            plotter.add_mesh(mesh, scalars="thickness", cmap="plasma", show_edges=False)
             plotter.reset_camera()
             plotter.screenshot(FALLBACK_PATH)
             plotter.close()
@@ -149,26 +347,35 @@ if st.sidebar.button("🚀 Generate Structure"):
             with open(temp_stl, "rb") as f:
                 stl_base64 = base64.b64encode(f.read()).decode('utf-8')
             
-            # Create a professional Standalone Three.js Viewer
+            # Create a professional Standalone Three.js Viewer with Vertex Coloring
             html_template = f"""
             <!DOCTYPE html>
             <html>
             <head>
                 <title>ImplicitLattice Viewer</title>
                 <style>
-                    body {{ margin: 0; background-color: #1e1e1e; overflow: hidden; font-family: sans-serif; }}
+                    body {{ margin: 0; background-color: #000000; overflow: hidden; font-family: 'Inter', sans-serif; }}
                     canvas {{ width: 100%; height: 100%; }}
-                    #info {{ position: absolute; top: 10px; width: 100%; text-align: center; color: #555; pointer-events: none; }}
+                    #info {{ position: absolute; top: 15px; width: 100%; text-align: center; color: #444; font-size: 10px; text-transform: uppercase; letter-spacing: 2px; pointer-events: none; }}
+                    #legend {{ position: absolute; bottom: 20px; right: 20px; background: rgba(0,0,0,0.8); padding: 12px; border-radius: 2px; color: #888; border: 1px solid #222; }}
                 </style>
             </head>
             <body>
-                <div id="info">Interactive 3D Preview (Orbit: Left Click, Zoom: Scroll)</div>
+                <div id="info">Digital Twin Simulation Data | Real-time 3D Engine</div>
+                <div id="legend">
+                    <div style="font-size: 8px; margin-bottom: 5px; text-transform: uppercase;">Lattice Thickness (mm)</div>
+                    <div style="display: flex; align-items: center;">
+                        <span style="font-size: 10px; margin-right: 8px;">{t_min:.2f}</span>
+                        <div style="width: 120px; height: 4px; background: linear-gradient(to right, #0d0887, #9c179e, #ed7953, #f0f921);"></div>
+                        <span style="font-size: 10px; margin-left: 8px;">{t_max:.2f}</span>
+                    </div>
+                </div>
                 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
                 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
                 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
                 <script>
                     const scene = new THREE.Scene();
-                    scene.background = new THREE.Color(0x1e1e1e);
+                    scene.background = new THREE.Color(0x000000);
                     const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
                     const renderer = new THREE.WebGLRenderer({{ antialias: true }});
                     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -177,14 +384,11 @@ if st.sidebar.button("🚀 Generate Structure"):
                     const controls = new THREE.OrbitControls(camera, renderer.domElement);
                     controls.enableDamping = true;
 
-                    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+                    const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
                     scene.add(ambientLight);
-                    const light1 = new THREE.DirectionalLight(0xffffff, 1);
+                    const light1 = new THREE.DirectionalLight(0xffffff, 1.0);
                     light1.position.set(1, 1, 2);
                     scene.add(light1);
-                    const light2 = new THREE.DirectionalLight(0xffffff, 0.5);
-                    light2.position.set(-1, -1, -2);
-                    scene.add(light2);
 
                     const loader = new THREE.STLLoader();
                     const stlData = atob("{stl_base64}");
@@ -194,12 +398,58 @@ if st.sidebar.button("🚀 Generate Structure"):
                     }}
                     
                     const geometry = loader.parse(bytes.buffer);
-                    const material = new THREE.MeshPhongMaterial({{ 
-                        color: 0xadd8e6, 
-                        specular: 0x111111, 
-                        shininess: 100,
-                        flatShading: false
+                    
+                    const material = new THREE.ShaderMaterial({{
+                        uniforms: {{
+                            tMin: {{ value: {t_min} }},
+                            tMax: {{ value: {t_max} }},
+                            mode: {{ value: "{grading_mode}" == "Point Attractor (Reinforcement)" ? 1 : 0 }},
+                            attPos: {{ value: new THREE.Vector3({ax}, {ay}, {az}) }},
+                            attRad: {{ value: {attractor_radius} }},
+                            zMin: {{ value: {b[4]} }},
+                            zMax: {{ value: {b[5]} }}
+                        }},
+                        vertexShader: `
+                            varying vec3 vPos;
+                            void main() {{
+                                vPos = (modelMatrix * vec4(position, 1.0)).xyz;
+                                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                            }}
+                        `,
+                        fragmentShader: `
+                            varying vec3 vPos;
+                            uniform float tMin;
+                            uniform float tMax;
+                            uniform int mode;
+                            uniform vec3 attPos;
+                            uniform float attRad;
+                            uniform float zMin;
+                            uniform float zMax;
+
+                            vec3 plasma(float t) {{
+                                const vec3 c1 = vec3(0.05, 0.03, 0.53);
+                                const vec3 c2 = vec3(0.61, 0.09, 0.62);
+                                const vec3 c3 = vec3(0.93, 0.47, 0.33);
+                                const vec3 c4 = vec3(0.94, 0.98, 0.13);
+                                if (t < 0.33) return mix(c1, c2, t * 3.0);
+                                if (t < 0.66) return mix(c2, c3, (t - 0.33) * 3.0);
+                                return mix(c3, c4, (t - 0.66) * 3.0);
+                            }}
+
+                            void main() {{
+                                float val;
+                                if (mode == 1) {{
+                                    float d = distance(vPos, attPos);
+                                    val = clamp(d / attRad, 0.0, 1.0);
+                                    val = 1.0 - val; // Thicker at center
+                                }} else {{
+                                    val = clamp((vPos.z - zMin) / (zMax - zMin), 0.0, 1.0);
+                                }}
+                                gl_FragColor = vec4(plasma(val), 1.0);
+                            }}
+                        `
                     }});
+
                     const mesh = new THREE.Mesh(geometry, material);
                     
                     geometry.computeBoundingBox();
@@ -220,12 +470,6 @@ if st.sidebar.button("🚀 Generate Structure"):
                         renderer.render(scene, camera);
                     }}
                     animate();
-
-                    window.addEventListener('resize', () => {{
-                        camera.aspect = window.innerWidth / window.innerHeight;
-                        camera.updateProjectionMatrix();
-                        renderer.setSize(window.innerWidth, window.innerHeight);
-                    }});
                 </script>
             </body>
             </html>
@@ -241,10 +485,10 @@ if st.sidebar.button("🚀 Generate Structure"):
             os.makedirs("export", exist_ok=True)
             save_mesh_to_stl(mesh, st.session_state.final_stl_path)
             
-            status.update(label="✅ Structure Validated & Ready!", state="complete")
+            status.update(label="STRUCTURE VALIDATED | READY", state="complete")
         except Exception as e:
             st.error(f"Generation Failed: {str(e)}")
-            status.update(label="❌ Error in Synthesis", state="error")
+            status.update(label="ERROR IN SYNTHESIS", state="error")
 
 # --- DISPLAY RESULTS ---
 col1, col2 = st.columns([3, 1])
@@ -267,29 +511,82 @@ with col1:
                 st.image(FALLBACK_PATH, caption="3D Preview (Static Fallback)")
     else:
         # Default state BEFORE any generation has happened
-        st.info("👈 Configure your lattice and click 'Generate' to visualize the 3D model.")
+        st.info("Configure your lattice and click 'Generate' to visualize the 3D model.")
         
         # If an old fallback exists, we can show it as a teaser or just keep it clean
         if os.path.exists(FALLBACK_PATH):
             st.image(FALLBACK_PATH, caption="Previous Generation Preview", use_container_width=True)
 
 with col2:
-    st.subheader("📊 Part Analytics")
-    st.metric("Volume Fraction", f"{st.session_state.vol_frac:.1%}")
-    st.metric("Estimated Mass", f"{st.session_state.mass:.2f} g")
+    st.markdown("#### ANALYTICS")
+    st.metric("VOL FRACTION", f"{st.session_state.vol_frac:.1%}")
+    st.metric("EST MASS", f"{st.session_state.mass:.2f} G")
     
     st.markdown("---")
-    st.subheader("📥 Commercial Export")
     if st.session_state.final_stl_path and os.path.exists(st.session_state.final_stl_path):
         with open(st.session_state.final_stl_path, "rb") as file:
             st.download_button(
-                label="Download STL File",
+                label="DOWNLOAD STL",
                 data=file,
                 file_name=os.path.basename(st.session_state.final_stl_path),
                 mime="application/sla"
             )
+        
+        # --- PDF REPORT GENERATION ---
+        if st.button("EXPORT PDF REPORT"):
+            try:
+                from fpdf import FPDF
+            except ImportError:
+                # Last resort inline install for isolated environments
+                import subprocess
+                subprocess.check_call([sys.executable, "-m", "pip", "install", "fpdf2"])
+                from fpdf import FPDF
+
+            pdf = FPDF()
+            pdf.add_page()
+            
+            # Header
+            pdf.set_font("Helvetica", 'B', 16)
+            pdf.cell(200, 10, text="ImplicitLattice Engineering Report", new_x="LMARGIN", new_y="NEXT", align='C')
+            pdf.set_font("Helvetica", size=10)
+            pdf.cell(200, 10, text=f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", new_x="LMARGIN", new_y="NEXT", align='C')
+            pdf.ln(10)
+            
+            # Screenshot
+            FALLBACK_PATH = os.path.abspath("fallback_preview.png")
+            if os.path.exists(FALLBACK_PATH):
+                pdf.image(FALLBACK_PATH, x=50, y=40, w=110)
+                pdf.ln(80)
+            
+            # Metrics Table
+            pdf.set_font("Helvetica", 'B', 12)
+            pdf.cell(200, 10, text="Part Specifications & Analytics", new_x="LMARGIN", new_y="NEXT")
+            pdf.set_font("Helvetica", size=11)
+            pdf.cell(100, 8, text=f"Lattice Type: {lattice_type}", border=1)
+            pdf.cell(90, 8, text=f"Cell Size: {cell_size} mm", border=1, new_x="LMARGIN", new_y="NEXT")
+            pdf.cell(100, 8, text=f"Grading Mode: {grading_mode}", border=1)
+            pdf.cell(90, 8, text=f"Thickness: {t_min:.2f} - {t_max:.2f} mm", border=1, new_x="LMARGIN", new_y="NEXT")
+            pdf.ln(5)
+            
+            pdf.set_font("Helvetica", 'B', 12)
+            pdf.cell(200, 10, text="Simulation Results", new_x="LMARGIN", new_y="NEXT")
+            pdf.set_font("Helvetica", size=11)
+            pdf.set_fill_color(240, 240, 240)
+            pdf.cell(100, 10, text="Volume Fraction", border=1, fill=True)
+            pdf.cell(90, 10, text=f"{st.session_state.vol_frac:.2%}", border=1, new_x="LMARGIN", new_y="NEXT")
+            pdf.cell(100, 10, text="Estimated Mass", border=1, fill=True)
+            pdf.cell(90, 10, text=f"{st.session_state.mass:.2f} g", border=1, new_x="LMARGIN", new_y="NEXT")
+            
+            pdf_output = pdf.output()
+            st.download_button(
+                label="Click to Download PDF",
+                data=bytes(pdf_output),
+                file_name=f"ImplicitLattice_Report_{datetime.now().strftime('%H%M%S')}.pdf",
+                mime="application/pdf"
+            )
+
     else:
         st.write("Generate a mesh to enable export.")
 
 st.markdown("---")
-st.caption("© 2026 ImplicitLattice | Powered by Streamlit & PyVista")
+st.caption("IMPLICIT LATTICE | ARCHITECTURAL SIMULATION | 2026")

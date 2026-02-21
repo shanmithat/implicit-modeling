@@ -5,7 +5,7 @@ ImplicitLattice is a professional-grade Python framework for generating complex,
 ## 🚀 Features
 
 - **TPMS (Triply Periodic Minimal Surfaces):** Native support for Gyroid, Schwarz P, and Diamond lattices defined by periodic trigonometric functions.
-- **Functional Grading:** Seamlessly vary lattice thickness across any axis (e.g., Z-linear grading) using continuous mathematical functions.
+- **Functional Grading:** Seamlessly vary lattice thickness across any axis (e.g., Z-linear grading) or from an **Attractor Point** (localized reinforcement) using continuous mathematical functions.
 - **MeshSDF Integration:** Treat any standard STL mesh as an implicit boundary, allowing for perfect conformal trimming of lattices to complex parts.
 - **Dual-View Visualization:** Built-in support for full 3D rendering and internal cross-section inspection using PyVista.
 - **STL Export:** High-fidelity binary STL export with automatic timestamping for version control.

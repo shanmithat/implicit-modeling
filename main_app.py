@@ -18,7 +18,7 @@ from core.analytics import calculate_volume_fraction, gibson_ashby_stiffness, es
 
 # Import lattice structures and grading patterns
 from lattices.tpms import Gyroid, Intersection
-from lattices.graded_lattice import GradedLattice, linear_z_grading
+from lattices.graded_lattice import GradedLattice, linear_z_grading, point_attractor_grading
 
 # Import visualization and export tools
 from visualization.renderer import Renderer

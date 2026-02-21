@@ -52,3 +52,30 @@ def radial_grading(center, r_max, t_inner, t_outer):
         dist_clamped = np.clip(dist, 0, r_max)
         return t_inner + (t_outer - t_inner) * (dist_clamped / r_max)
     return grading
+
+def point_attractor_grading(points, attractor_pos, radius, t_min, t_max):
+    """
+    Calculates thickness based on distance to an attractor point.
+    Makes the lattice thicker near the attractor_pos and thinner as it moves away.
+    
+    Args:
+        points (tuple/np.ndarray): Either (x, y, z) tuple of coordinate arrays, or (N, 3) array.
+        attractor_pos (tuple/list): (x, y, z) position of the attractor point.
+        radius (float): Distance over which the grading is applied.
+        t_min (float): Minimum thickness (at radius and beyond).
+        t_max (float): Maximum thickness (at attractor position).
+    """
+    if isinstance(points, tuple) and len(points) == 3:
+        x, y, z = points
+    else:
+        points = np.asarray(points)
+        if points.ndim == 1:
+            x, y, z = points[0], points[1], points[2]
+        else:
+            x, y, z = points[:, 0], points[:, 1], points[:, 2]
+
+    attractor_arr = np.array(attractor_pos)
+    dist = np.sqrt((x - attractor_arr[0])**2 + (y - attractor_arr[1])**2 + (z - attractor_arr[2])**2)
+    dist_clamped = np.clip(dist, 0, radius)
+    # At dist=0, return t_max. At dist=radius, return t_min.
+    return t_max - (t_max - t_min) * (dist_clamped / radius)

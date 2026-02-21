@@ -148,3 +148,7 @@ cython_debug/
 # demo_container.stl
 # latticed_sphere.stl
 # export/final_graded_structure.stl
+export/web_generated_*.stl
+streamlit_log.txt
+temp_viewer.html
+temp_view_data.stl
