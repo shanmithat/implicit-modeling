@@ -20,6 +20,27 @@ The engine is built on a modular, object-oriented architecture:
 - `export/`: Tools for converting implicit fields into manufacturable mesh files.
 - `config.py`: Centralized configuration to separate design parameters from engine logic.
 
+## 🧮 Mathematical Foundations
+
+### Triply Periodic Minimal Surfaces (TPMS)
+The core of this engine relies on TPMS, which are surfaces that are periodic in three independent directions and have a mean curvature of zero. They are modeled as implicit level-set equations $F(x, y, z) = 0$.
+
+#### 1. The Gyroid
+The Gyroid is a continuous, non-self-intersecting structure defined by:
+$$ \sin(\omega x)\cos(\omega y) + \sin(\omega y)\cos(\omega z) + \sin(\omega z)\cos(\omega x) = t $$
+Where $\omega = \frac{2\pi}{L}$ defines the spatial frequency based on the unit cell size $L$, and $t$ acts as the iso-level dictating thickness.
+
+#### 2. The Diamond (Schwarz D)
+The Diamond structure provides high stiffness and is defined as:
+$$ \sin(\omega x)\sin(\omega y)\sin(\omega z) + \sin(\omega x)\cos(\omega y)\cos(\omega z) + \cos(\omega x)\sin(\omega y)\cos(\omega z) + \cos(\omega x)\cos(\omega y)\sin(\omega z) = t $$
+
+### The Marching Cubes Algorithm
+To render and export these implicit fields, ImplicitLattice utilizes the **Marching Cubes (MC)** algorithm via `PyVista/VTK`:
+1. **Grid Evaluation:** The 3D bounding box is subdivided into a discrete voxel grid at the specified `resolution`.
+2. **Scalar Field Generation:** The TPMS equation (plus any grading/boolean logic) is evaluated at every vertex of the grid to generate a scalar distance field.
+3. **Isosurface Extraction:** MC examines each group of 8 adjacent vertices (a cube). By checking which vertices are inside the surface ($>0$) and which are outside ($<0$), the algorithm references a lookup table of 256 possible polygon configurations.
+4. **Vertex Interpolation:** The exact positions of the triangles are determined by linear interpolation along the grid edges, resulting in a smooth, high-fidelity mesh suitable for STL export.
+
 ## 📊 Engineering Analytics
 
 ImplicitLattice goes beyond geometry by providing real-time engineering feedback:

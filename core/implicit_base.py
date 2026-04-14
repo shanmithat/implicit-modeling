@@ -38,3 +38,13 @@ class Sphere(ImplicitSurface):
         """
         # Using individual coordinates to avoid broadcasting issues with stacked arrays
         return (x - self.center[0])**2 + (y - self.center[1])**2 + (z - self.center[2])**2 - self.radius**2
+
+    @property
+    def bounds(self):
+        """
+        Returns the bounding box of the sphere.
+        Format: (x_min, x_max, y_min, y_max, z_min, z_max)
+        """
+        cx, cy, cz = self.center
+        r = self.radius
+        return (cx - r, cx + r, cy - r, cy + r, cz - r, cz + r)

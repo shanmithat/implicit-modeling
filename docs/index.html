@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ImplicitLattice | Digital Twin Synthesis</title>
+    <style>
+        :root {
+            --primary: #00E5FF;
+            --bg-dark: #000000;
+            --bg-panel: #080808;
+            --text-light: #FFFFFF;
+            --text-dim: #777777;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            line-height: 1.6;
+        }
+
+        header {
+            border-bottom: 1px solid var(--primary);
+            padding: 2rem 5%;
+            text-align: center;
+            background: linear-gradient(180deg, rgba(0,229,255,0.1) 0%, transparent 100%);
+        }
+
+        h1 {
+            color: var(--primary);
+            font-size: 3rem;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            margin: 0;
+            text-shadow: 0 0 20px rgba(0,229,255,0.5);
+        }
+
+        h2 {
+            color: var(--primary);
+            border-bottom: 1px solid var(--primary);
+            display: inline-block;
+            padding-bottom: 0.5rem;
+            margin-top: 3rem;
+            text-transform: uppercase;
+        }
+
+        .subtitle {
+            color: var(--text-dim);
+            font-size: 1.2rem;
+            letter-spacing: 2px;
+            margin-top: 1rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem 5%;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .card {
+            background-color: var(--bg-panel);
+            border: 1px solid #333;
+            padding: 2rem;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            border-color: var(--primary);
+            box-shadow: 0 0 15px rgba(0,229,255,0.2);
+            transform: translateY(-5px);
+        }
+
+        .card h3 {
+            color: var(--primary);
+            margin-top: 0;
+        }
+
+        .btn {
+            display: inline-block;
+            background-color: transparent;
+            color: var(--primary);
+            border: 1px solid var(--primary);
+            padding: 1rem 2rem;
+            text-decoration: none;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: bold;
+            margin-top: 2rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.1);
+        }
+
+        .btn:hover {
+            background-color: rgba(0, 229, 255, 0.1);
+            box-shadow: 0 0 20px rgba(0, 229, 255, 0.3);
+            color: var(--text-light);
+        }
+
+        .gallery {
+            margin-top: 4rem;
+        }
+
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        .gallery-item {
+            position: relative;
+            overflow: hidden;
+            border: 1px solid #333;
+        }
+
+        .gallery-item img {
+            width: 100%;
+            display: block;
+            filter: grayscale(20%);
+            transition: 0.5s;
+        }
+
+        .gallery-item:hover img {
+            filter: grayscale(0%);
+            transform: scale(1.05);
+        }
+
+        .gallery-caption {
+            position: absolute;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            width: 100%;
+            padding: 1rem;
+            border-top: 1px solid var(--primary);
+            color: var(--primary);
+            font-weight: bold;
+            text-transform: uppercase;
+            box-sizing: border-box;
+        }
+
+        footer {
+            margin-top: 5rem;
+            padding: 3rem 5%;
+            text-align: center;
+            border-top: 1px solid #222;
+            color: var(--text-dim);
+            font-size: 0.9rem;
+            letter-spacing: 1px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>ImplicitLattice</h1>
+        <div class="subtitle">Next-Generation SDF Modeling Engine</div>
+    </header>
+
+    <div class="container">
+        <section>
+            <h2>Architectural Validation</h2>
+            <p>ImplicitLattice is a python framework engineered to generate mathematically precise, functionally graded lattice metmaterials using Triply Periodic Minimal Surfaces (TPMS). Designed for high-performance Additive Manufacturing environments, it computes continuous volumetric field equations into high fidelity STL geometry.</p>
+        </section>
+
+        <section class="grid">
+            <div class="card">
+                <h3>TPMS Primitives</h3>
+                <p>Native support for generating Gyroid, Schwarz P, and Diamond minimum-surface architectures mapped perfectly to implicit fields.</p>
+            </div>
+             <div class="card">
+                <h3>Functional Grading</h3>
+                <p>Dynamically alter density mapping through Point Attractors or Linear Z-Grading, maximizing strength-to-weight optimization.</p>
+            </div>
+             <div class="card">
+                <h3>Hardware Acceleration</h3>
+                <p>Engineered using vectorized Numpy logic and PyVista Marching Cubes (VTK) for industry-leading voxel extraction times.</p>
+            </div>
+        </section>
+
+        <section class="gallery">
+            <h2>Digital Twin Captures</h2>
+            <p>High-resolution verification shots of the ImplicitLattice Engine interacting with real-time analytics.</p>
+            <div class="gallery-grid">
+                <div class="gallery-item">
+                    <img src="../presentation_assets/gyroid_dashboard.png" alt="Gyroid Lattice Simulation">
+                    <div class="gallery-caption">Gyroid | 0.8mm Matrix</div>
+                </div>
+                <div class="gallery-item">
+                    <img src="../presentation_assets/diamond_dashboard.png" alt="Diamond Lattice Simulation">
+                    <div class="gallery-caption">Diamond | 0.8mm Matrix</div>
+                </div>
+            </div>
+        </section>
+
+        <div style="text-align: center;">
+            <a href="https://github.com/shanmithat/implicit-modeling" class="btn">View Source Code</a>
+        </div>
+    </div>
+
+    <footer>
+        IMPLICIT LATTICE &copy; 2026 | CADFEA ADVANCED RESEARCH
+    </footer>
+</body>
+</html>

@@ -1,0 +1,11 @@
+from playwright.sync_api import sync_playwright
+p = sync_playwright().start()
+browser = p.chromium.launch()
+page = browser.new_page(viewport={'width': 1920, 'height': 1080})
+page.goto('http://localhost:8501')
+page.wait_for_timeout(5000)
+page.locator('button:has-text("GENERATE STRUCTURE")').click()
+page.wait_for_timeout(20000)
+page.screenshot(path='test_error.png')
+browser.close()
+p.stop()

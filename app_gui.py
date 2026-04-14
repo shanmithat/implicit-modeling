@@ -354,7 +354,7 @@ if st.sidebar.button("GENERATE STRUCTURE"):
             <head>
                 <title>ImplicitLattice Viewer</title>
                 <style>
-                    body {{ margin: 0; background-color: #000000; overflow: hidden; font-family: 'Inter', sans-serif; }}
+                    body {{ margin: 0; background-color: #000000; overflow: hidden; font-family: 'Helvetica', sans-serif; }}
                     canvas {{ width: 100%; height: 100%; }}
                     #info {{ position: absolute; top: 15px; width: 100%; text-align: center; color: #444; font-size: 10px; text-transform: uppercase; letter-spacing: 2px; pointer-events: none; }}
                     #legend {{ position: absolute; bottom: 20px; right: 20px; background: rgba(0,0,0,0.8); padding: 12px; border-radius: 2px; color: #888; border: 1px solid #222; }}
