@@ -65,22 +65,23 @@ void main() {
     float val;
     
     if (mode == 1) {
-        // Point Attractor Grading Mode
-        // Compute Euclidean distance from the fragment position vPos to the attractor coordinate attPos
-        // Math: d = ||vPos - attPos||
         float d = distance(vPos, attPos);
-        
-        // Normalize distance by influence radius and invert so it is thicker (1.0) near the attractor center
-        // Math: val = 1.0 - clamp(d / attRad, 0.0, 1.0)
-        val = clamp(d / attRad, 0.0, 1.0);
-        val = 1.0 - val;
+        val = 1.0 - clamp(d / attRad, 0.0, 1.0);
     } else {
-        // Linear Z-Grading Mode
-        // Map the fragment's Z coordinate relative to the container's vertical spatial bounds
-        // Math: val = (vPos.z - zMin) / (zMax - zMin)
         val = clamp((vPos.z - zMin) / (zMax - zMin), 0.0, 1.0);
     }
     
-    // Output the mapped plasma color corresponding to the localized lattice thickness grading
+    // Dynamically interpolate local thickness boundary based on the grading strategy
+    float current_thickness = mix(tMin, tMax, val);
+    
+    // Evaluate the true Gyroid Implicit Field Equation at the scaled spatial point
+    vec3 wPos = vPos * frequency;
+    float field_evaluation = sin(wPos.x) * cos(wPos.y) + sin(wPos.y) * cos(wPos.z) + sin(wPos.z) * cos(wPos.x);
+    
+    // Threshold condition: Render solid voxel shell if within the thickness iso-surface bounds
+    if (abs(field_evaluation) > current_thickness) {
+        discard; // Discard fragment to carve out the empty spaces of the gyroid lattice structure
+    }
+    
     gl_FragColor = vec4(plasma(val), 1.0);
 }
