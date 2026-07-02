@@ -144,9 +144,16 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
-# STL files (keeping them if they are demo files, but often ignored if large)
-# demo_container.stl
-# latticed_sphere.stl
-# export/final_graded_structure.stl
-export/web_generated_*.stl
+# STL files
+*.stl
+export/*.stl
+
+# Temporary HTML viewer
+temp_viewer.html
 temp_view_data.stl
+
+# Log files
+*.log
+*_log.txt
+streamlit_log.txt
+
