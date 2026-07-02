@@ -26,6 +26,12 @@ uniform float zMin;
 // zMax: Spatial upper bound of the container mesh along the Z-axis
 uniform float zMax;
 
+// latticeType: Selected TPMS Architecture
+// 0 = Gyroid, 1 = Diamond, 2 = Schwarz P, 3 = Hybrid
+uniform int latticeType;
+// blendWeight: Weights for hybrid blend (lerp between Gyroid and Diamond)
+uniform float blendWeight;
+
 /**
  * Mathematical formulation of the TPMS (Triply Periodic Minimal Surfaces) supported:
  * 
@@ -37,17 +43,20 @@ uniform float zMax;
  *    F_diamond(x, y, z) = sin(w*x)*sin(w*y)*sin(w*z) + sin(w*x)*cos(w*y)*cos(w*z) 
  *                         + cos(w*x)*sin(w*y)*cos(w*z) + cos(w*x)*cos(w*y)*sin(w*z) = t
  * 
- * 3. Functional Grading (Multi-Scale Interface):
+ * 3. Schwarz P Level Set Equation:
+ *    F_schwarz_p(x, y, z) = cos(w*x) + cos(w*y) + cos(w*z) = t
+ * 
+ * 4. Functional Grading (Multi-Scale Interface):
  *    The thickness iso-level t varies continuously in space: t = t(x, y, z).
  *    This shader maps the local spatial position vPos to a normalized grading parameter
  *    which drives the visual colormap gradient corresponding to the physical thickness.
  * 
- * 4. Raymarching Volumetric Signature Intersection Loop:
+ * 5. Raymarching Volumetric Signature Intersection Loop:
  *    When evaluating functional implicit fields via raymarching on the GPU, we trace rays
  *    P(s) = RayOrigin + s * RayDirection and evaluate the boundary condition at each step:
  *        F_tpms(P(s)) - t(P(s)) = 0
- *    The uniform variables (frequency, tMin, tMax, attPos, attRad, zMin, zMax) parameterize
- *    the scale, thickness threshold limits, and the spatial bounding box limits of the marched volume.
+ *    The uniform variables (frequency, tMin, tMax, attPos, attRad, zMin, zMax, latticeType, blendWeight)
+ *    parameterize the scale, thickness limits, and the spatial bounding box limits of the marched volume.
  */
 
 // Plasma colormap for thickness visualization
@@ -74,13 +83,35 @@ void main() {
     // Dynamically interpolate local thickness boundary based on the grading strategy
     float current_thickness = mix(tMin, tMax, val);
     
-    // Evaluate the true Gyroid Implicit Field Equation at the scaled spatial point
+    // Evaluate the true TPMS Implicit Field Equation at the scaled spatial point
     vec3 wPos = vPos * frequency;
-    float field_evaluation = sin(wPos.x) * cos(wPos.y) + sin(wPos.y) * cos(wPos.z) + sin(wPos.z) * cos(wPos.x);
+    float field_evaluation = 0.0;
+    
+    if (latticeType == 0) {
+        // Gyroid
+        field_evaluation = sin(wPos.x) * cos(wPos.y) + sin(wPos.y) * cos(wPos.z) + sin(wPos.z) * cos(wPos.x);
+    } else if (latticeType == 1) {
+        // Diamond
+        field_evaluation = sin(wPos.x) * sin(wPos.y) * sin(wPos.z) + 
+                           sin(wPos.x) * cos(wPos.y) * cos(wPos.z) + 
+                           cos(wPos.x) * sin(wPos.y) * cos(wPos.z) + 
+                           cos(wPos.x) * cos(wPos.y) * sin(wPos.z);
+    } else if (latticeType == 2) {
+        // Schwarz P
+        field_evaluation = cos(wPos.x) + cos(wPos.y) + cos(wPos.z);
+    } else if (latticeType == 3) {
+        // Hybrid (weighted blend between Gyroid and Diamond)
+        float g = sin(wPos.x) * cos(wPos.y) + sin(wPos.y) * cos(wPos.z) + sin(wPos.z) * cos(wPos.x);
+        float d = sin(wPos.x) * sin(wPos.y) * sin(wPos.z) + 
+                  sin(wPos.x) * cos(wPos.y) * cos(wPos.z) + 
+                  cos(wPos.x) * sin(wPos.y) * cos(wPos.z) + 
+                  cos(wPos.x) * cos(wPos.y) * sin(wPos.z);
+        field_evaluation = mix(g, d, blendWeight);
+    }
     
     // Threshold condition: Render solid voxel shell if within the thickness iso-surface bounds
     if (abs(field_evaluation) > current_thickness) {
-        discard; // Discard fragment to carve out the empty spaces of the gyroid lattice structure
+        discard; // Discard fragment to carve out the empty spaces of the lattice structure
     }
     
     gl_FragColor = vec4(plasma(val), 1.0);

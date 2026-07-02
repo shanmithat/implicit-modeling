@@ -1,13 +1,17 @@
 import numpy as np
 from core.implicit_base import ImplicitSurface
 
-class Gyroid(ImplicitSurface):
+class BaseLattice(ImplicitSurface):
+    def __init__(self, frequency=1.0):
+        self.frequency = frequency
+
+class Gyroid(BaseLattice):
     """
     Represents a Gyroid TPMS structure.
     The formula is sin(x)cos(y) + sin(y)cos(z) + sin(z)cos(x).
     """
     def __init__(self, frequency=1.0):
-        self.frequency = frequency
+        super().__init__(frequency)
 
     def evaluate(self, x, y, z):
         fx, fy, fz = self.frequency * x, self.frequency * y, self.frequency * z
@@ -15,13 +19,13 @@ class Gyroid(ImplicitSurface):
                 np.sin(fy) * np.cos(fz) +
                 np.sin(fz) * np.cos(fx))
 
-class Diamond(ImplicitSurface):
+class Diamond(BaseLattice):
     """
     Represents a Diamond (Schwarz D) TPMS structure.
     Formula: sin(x)sin(y)sin(z) + sin(x)cos(y)cos(z) + cos(x)sin(y)cos(z) + cos(x)cos(y)sin(z)
     """
     def __init__(self, frequency=1.0):
-        self.frequency = frequency
+        super().__init__(frequency)
 
     def evaluate(self, x, y, z):
         fx, fy, fz = self.frequency * x, self.frequency * y, self.frequency * z
@@ -29,6 +33,18 @@ class Diamond(ImplicitSurface):
                 np.sin(fx) * np.cos(fy) * np.cos(fz) + 
                 np.cos(fx) * np.sin(fy) * np.cos(fz) + 
                 np.cos(fx) * np.cos(fy) * np.sin(fz))
+
+class SchwarzPLattice(BaseLattice):
+    """
+    Schwarz P Triply Periodic Minimal Surface (TPMS) Generation Layer.
+    Equation: cos(w*x) + cos(w*y) + cos(w*z) = t
+    """
+    def __init__(self, frequency=1.0):
+        super().__init__(frequency)
+
+    def evaluate(self, x, y, z):
+        w = self.frequency
+        return np.cos(w * x) + np.cos(w * y) + np.cos(w * z)
 
 class HybridLattice(ImplicitSurface):
     """

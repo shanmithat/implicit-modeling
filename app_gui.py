@@ -14,7 +14,7 @@ from config import CONFIG, get_frequency
 from core.implicit_base import Sphere
 from core.mesh_container import MeshSDF
 from core.analytics import calculate_volume_fraction, gibson_ashby_stiffness, estimate_mass
-from lattices.tpms import Gyroid, Diamond, HybridLattice, Intersection
+from lattices.tpms import Gyroid, Diamond, SchwarzPLattice, HybridLattice, Intersection
 from lattices.graded_lattice import GradedLattice, linear_z_grading, point_attractor_grading
 from export.stl_exporter import save_mesh_to_stl
 
@@ -176,7 +176,7 @@ if hybrid_mode:
     blend_weight = st.sidebar.slider("BLEND WEIGHT", 0.0, 1.0, 0.5)
     lattice_type = "Hybrid"
 else:
-    lattice_type = st.sidebar.selectbox("LATTICE TYPE", ["Gyroid", "Diamond"])
+    lattice_type = st.sidebar.selectbox("LATTICE TYPE", ["Gyroid", "Diamond", "Schwarz P"])
 cell_size = st.sidebar.slider("CELL SIZE (MM)", 0.2, 5.0, 0.8)
 resolution = st.sidebar.slider("RESOLUTION", 20, 150, 60)
 slice_model = st.sidebar.toggle("INTERNAL SECTION (X-Z)", value=False)
@@ -259,6 +259,8 @@ if st.sidebar.button("GENERATE STRUCTURE"):
             else:
                 if lattice_type == "Gyroid":
                     base_lattice = Gyroid(frequency=freq)
+                elif lattice_type == "Schwarz P":
+                    base_lattice = SchwarzPLattice(frequency=freq)
                 else:
                     base_lattice = Diamond(frequency=freq)
                 st.write(f"Synthesizing {lattice_type} Architecture...")
@@ -364,6 +366,21 @@ if st.sidebar.button("GENERATE STRUCTURE"):
                 st.error(f"Failed to load WebGL source assets from src/: {str(read_err)}")
                 st.stop()
 
+            # Map the selected lattice architecture to uniform values for the shader (0=Gyroid, 1=Diamond, 2=Schwarz P, 3=Hybrid)
+            if hybrid_mode:
+                lattice_type_val = 3
+                blend_weight_val = blend_weight
+            else:
+                blend_weight_val = 0.0
+                if lattice_type == "Gyroid":
+                    lattice_type_val = 0
+                elif lattice_type == "Diamond":
+                    lattice_type_val = 1
+                elif lattice_type == "Schwarz P":
+                    lattice_type_val = 2
+                else:
+                    lattice_type_val = 0
+
             # Map Python parameters and shaders directly to the JavaScript WebGL engine
             engine_js = (engine_js_template
                 .replace("__STL_BASE64__", stl_base64)
@@ -377,6 +394,8 @@ if st.sidebar.button("GENERATE STRUCTURE"):
                 .replace("__ATT_RAD__", f"{attractor_radius:.4f}")
                 .replace("__Z_MIN__", f"{b[4]:.4f}")
                 .replace("__Z_MAX__", f"{b[5]:.4f}")
+                .replace("__LATTICE_TYPE__", str(lattice_type_val))
+                .replace("__BLEND_WEIGHT__", f"{blend_weight_val:.4f}")
                 .replace("__VERTEX_SHADER__", vertex_shader_code)
                 .replace("__FRAGMENT_SHADER__", fragment_shader_code)
             )

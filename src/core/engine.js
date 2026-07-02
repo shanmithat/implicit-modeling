@@ -39,7 +39,9 @@ const material = new THREE.ShaderMaterial({
         attPos: { value: new THREE.Vector3(__ATT_X__, __ATT_Y__, __ATT_Z__) },
         attRad: { value: __ATT_RAD__ },
         zMin: { value: __Z_MIN__ },
-        zMax: { value: __Z_MAX__ }
+        zMax: { value: __Z_MAX__ },
+        latticeType: { value: __LATTICE_TYPE__ },
+        blendWeight: { value: __BLEND_WEIGHT__ }
     },
     // Shaders read from external .glsl files in Python and loaded here
     vertexShader: `__VERTEX_SHADER__`,
