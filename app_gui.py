@@ -369,6 +369,7 @@ if st.sidebar.button("GENERATE STRUCTURE"):
                 .replace("__STL_BASE64__", stl_base64)
                 .replace("__T_MIN__", f"{t_min:.4f}")
                 .replace("__T_MAX__", f"{t_max:.4f}")
+                .replace("__FREQUENCY__", f"{freq:.4f}")
                 .replace("__GRADING_MODE__", "1" if grading_mode == "Point Attractor (Reinforcement)" else "0")
                 .replace("__ATT_X__", f"{ax:.4f}")
                 .replace("__ATT_Y__", f"{ay:.4f}")

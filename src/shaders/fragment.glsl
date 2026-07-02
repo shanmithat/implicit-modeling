@@ -6,6 +6,9 @@ uniform float tMin;
 // tMax: Maximum thickness limit (maps to the upper bounds of functional grading)
 uniform float tMax;
 
+// frequency: Spatial scale frequency parameter (w = 2*pi / CellSize)
+uniform float frequency;
+
 // mode: Grading Strategy Selector
 // 0 = Linear Z-Grading: Thickness varies linearly across the vertical range
 //     Math: f(z) = (z - zMin) / (zMax - zMin)
@@ -28,7 +31,7 @@ uniform float zMax;
  * 
  * 1. Gyroid Level Set Equation:
  *    F_gyroid(x, y, z) = sin(w*x)*cos(w*y) + sin(w*y)*cos(w*z) + sin(w*z)*cos(w*x) = t
- *    Where w = 2*pi / CellSize defines the spatial frequency, and t is the thickness offset.
+ *    Where w = frequency defines the spatial scale, and t is the thickness offset.
  * 
  * 2. Diamond (Schwarz D) Level Set Equation:
  *    F_diamond(x, y, z) = sin(w*x)*sin(w*y)*sin(w*z) + sin(w*x)*cos(w*y)*cos(w*z) 
@@ -38,6 +41,13 @@ uniform float zMax;
  *    The thickness iso-level t varies continuously in space: t = t(x, y, z).
  *    This shader maps the local spatial position vPos to a normalized grading parameter
  *    which drives the visual colormap gradient corresponding to the physical thickness.
+ * 
+ * 4. Raymarching Volumetric Signature Intersection Loop:
+ *    When evaluating functional implicit fields via raymarching on the GPU, we trace rays
+ *    P(s) = RayOrigin + s * RayDirection and evaluate the boundary condition at each step:
+ *        F_tpms(P(s)) - t(P(s)) = 0
+ *    The uniform variables (frequency, tMin, tMax, attPos, attRad, zMin, zMax) parameterize
+ *    the scale, thickness threshold limits, and the spatial bounding box limits of the marched volume.
  */
 
 // Plasma colormap for thickness visualization

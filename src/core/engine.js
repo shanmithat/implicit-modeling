@@ -34,6 +34,7 @@ const material = new THREE.ShaderMaterial({
     uniforms: {
         tMin: { value: __T_MIN__ },
         tMax: { value: __T_MAX__ },
+        frequency: { value: __FREQUENCY__ },
         mode: { value: __GRADING_MODE__ },
         attPos: { value: new THREE.Vector3(__ATT_X__, __ATT_Y__, __ATT_Z__) },
         attRad: { value: __ATT_RAD__ },
