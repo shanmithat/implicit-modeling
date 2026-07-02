@@ -347,6 +347,39 @@ if st.sidebar.button("GENERATE STRUCTURE"):
             with open(temp_stl, "rb") as f:
                 stl_base64 = base64.b64encode(f.read()).decode('utf-8')
             
+            # Load externalized shaders and engine JS
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            vertex_path = os.path.join(base_dir, "src", "shaders", "vertex.glsl")
+            fragment_path = os.path.join(base_dir, "src", "shaders", "fragment.glsl")
+            engine_path = os.path.join(base_dir, "src", "core", "engine.js")
+            
+            try:
+                with open(vertex_path, "r", encoding="utf-8") as f:
+                    vertex_shader_code = f.read()
+                with open(fragment_path, "r", encoding="utf-8") as f:
+                    fragment_shader_code = f.read()
+                with open(engine_path, "r", encoding="utf-8") as f:
+                    engine_js_template = f.read()
+            except Exception as read_err:
+                st.error(f"Failed to load WebGL source assets from src/: {str(read_err)}")
+                st.stop()
+
+            # Map Python parameters and shaders directly to the JavaScript WebGL engine
+            engine_js = (engine_js_template
+                .replace("__STL_BASE64__", stl_base64)
+                .replace("__T_MIN__", f"{t_min:.4f}")
+                .replace("__T_MAX__", f"{t_max:.4f}")
+                .replace("__GRADING_MODE__", "1" if grading_mode == "Point Attractor (Reinforcement)" else "0")
+                .replace("__ATT_X__", f"{ax:.4f}")
+                .replace("__ATT_Y__", f"{ay:.4f}")
+                .replace("__ATT_Z__", f"{az:.4f}")
+                .replace("__ATT_RAD__", f"{attractor_radius:.4f}")
+                .replace("__Z_MIN__", f"{b[4]:.4f}")
+                .replace("__Z_MAX__", f"{b[5]:.4f}")
+                .replace("__VERTEX_SHADER__", vertex_shader_code)
+                .replace("__FRAGMENT_SHADER__", fragment_shader_code)
+            )
+
             # Create a professional Standalone Three.js Viewer with Vertex Coloring
             html_template = f"""
             <!DOCTYPE html>
@@ -374,102 +407,7 @@ if st.sidebar.button("GENERATE STRUCTURE"):
                 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
                 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
                 <script>
-                    const scene = new THREE.Scene();
-                    scene.background = new THREE.Color(0x000000);
-                    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-                    const renderer = new THREE.WebGLRenderer({{ antialias: true }});
-                    renderer.setSize(window.innerWidth, window.innerHeight);
-                    document.body.appendChild(renderer.domElement);
-
-                    const controls = new THREE.OrbitControls(camera, renderer.domElement);
-                    controls.enableDamping = true;
-
-                    const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
-                    scene.add(ambientLight);
-                    const light1 = new THREE.DirectionalLight(0xffffff, 1.0);
-                    light1.position.set(1, 1, 2);
-                    scene.add(light1);
-
-                    const loader = new THREE.STLLoader();
-                    const stlData = atob("{stl_base64}");
-                    const bytes = new Uint8Array(stlData.length);
-                    for (let i = 0; i < stlData.length; i++) {{
-                        bytes[i] = stlData.charCodeAt(i);
-                    }}
-                    
-                    const geometry = loader.parse(bytes.buffer);
-                    
-                    const material = new THREE.ShaderMaterial({{
-                        uniforms: {{
-                            tMin: {{ value: {t_min} }},
-                            tMax: {{ value: {t_max} }},
-                            mode: {{ value: "{grading_mode}" == "Point Attractor (Reinforcement)" ? 1 : 0 }},
-                            attPos: {{ value: new THREE.Vector3({ax}, {ay}, {az}) }},
-                            attRad: {{ value: {attractor_radius} }},
-                            zMin: {{ value: {b[4]} }},
-                            zMax: {{ value: {b[5]} }}
-                        }},
-                        vertexShader: `
-                            varying vec3 vPos;
-                            void main() {{
-                                vPos = (modelMatrix * vec4(position, 1.0)).xyz;
-                                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-                            }}
-                        `,
-                        fragmentShader: `
-                            varying vec3 vPos;
-                            uniform float tMin;
-                            uniform float tMax;
-                            uniform int mode;
-                            uniform vec3 attPos;
-                            uniform float attRad;
-                            uniform float zMin;
-                            uniform float zMax;
-
-                            vec3 plasma(float t) {{
-                                const vec3 c1 = vec3(0.05, 0.03, 0.53);
-                                const vec3 c2 = vec3(0.61, 0.09, 0.62);
-                                const vec3 c3 = vec3(0.93, 0.47, 0.33);
-                                const vec3 c4 = vec3(0.94, 0.98, 0.13);
-                                if (t < 0.33) return mix(c1, c2, t * 3.0);
-                                if (t < 0.66) return mix(c2, c3, (t - 0.33) * 3.0);
-                                return mix(c3, c4, (t - 0.66) * 3.0);
-                            }}
-
-                            void main() {{
-                                float val;
-                                if (mode == 1) {{
-                                    float d = distance(vPos, attPos);
-                                    val = clamp(d / attRad, 0.0, 1.0);
-                                    val = 1.0 - val; // Thicker at center
-                                }} else {{
-                                    val = clamp((vPos.z - zMin) / (zMax - zMin), 0.0, 1.0);
-                                }}
-                                gl_FragColor = vec4(plasma(val), 1.0);
-                            }}
-                        `
-                    }});
-
-                    const mesh = new THREE.Mesh(geometry, material);
-                    
-                    geometry.computeBoundingBox();
-                    const center = new THREE.Vector3();
-                    geometry.boundingBox.getCenter(center);
-                    mesh.position.sub(center);
-                    scene.add(mesh);
-                    
-                    const size = new THREE.Vector3();
-                    geometry.boundingBox.getSize(size);
-                    const maxDim = Math.max(size.x, size.y, size.z);
-                    camera.position.set(maxDim*1.5, maxDim*1.5, maxDim*1.5);
-                    camera.lookAt(0, 0, 0);
-
-                    function animate() {{
-                        requestAnimationFrame(animate);
-                        controls.update();
-                        renderer.render(scene, camera);
-                    }}
-                    animate();
+                    {engine_js}
                 </script>
             </body>
             </html>

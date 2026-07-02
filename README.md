@@ -22,6 +22,12 @@ The engine is built on a modular, object-oriented architecture:
 
 ## 🧮 Mathematical Foundations
 
+### Mathematical Framework
+This engine evaluates continuous field equations directly inside a hardware fragment shader pipeline, completely eliminating discrete mesh serialization overhead (STL/OBJ polygon generation loops).
+
+- **Representation:** Functional Implicit Fields via Raymarching Volumetric Signatures.
+- **Compute Layer:** WebGL 2.0 / GLSL ES 3.0 context executing out-of-core evaluation on the GPU per-pixel.
+
 ### Triply Periodic Minimal Surfaces (TPMS)
 The core of this engine relies on TPMS, which are surfaces that are periodic in three independent directions and have a mean curvature of zero. They are modeled as implicit level-set equations $F(x, y, z) = 0$.
 
