@@ -2,7 +2,7 @@
 
 ImplicitLattice is a professional-grade Python framework for generating complex, functionally graded lattice structures using implicit modeling and Signed Distance Fields (SDF). It is designed for additive manufacturing (3D Printing) applications where structural optimization and conformal geometry are critical.
 
-## 🚀 Features
+## Features
 
 - **TPMS (Triply Periodic Minimal Surfaces):** Native support for Gyroid, Schwarz P, and Diamond lattices defined by periodic trigonometric functions.
 - **Functional Grading:** Seamlessly vary lattice thickness across any axis (e.g., Z-linear grading) or from an **Attractor Point** (localized reinforcement) using continuous mathematical functions.
@@ -10,7 +10,7 @@ ImplicitLattice is a professional-grade Python framework for generating complex,
 - **Dual-View Visualization:** Built-in support for full 3D rendering and internal cross-section inspection using PyVista.
 - **STL Export:** High-fidelity binary STL export with automatic timestamping for version control.
 
-## 🏗️ Architecture
+## Architecture
 
 The engine is built on a modular, object-oriented architecture:
 
@@ -20,7 +20,7 @@ The engine is built on a modular, object-oriented architecture:
 - `export/`: Tools for converting implicit fields into manufacturable mesh files.
 - `config.py`: Centralized configuration to separate design parameters from engine logic.
 
-## 🧮 Mathematical Foundations
+## Mathematical Foundations
 
 ### Mathematical Framework
 This engine evaluates continuous field equations directly inside a hardware fragment shader pipeline, completely eliminating discrete mesh serialization overhead (STL/OBJ polygon generation loops).
@@ -47,15 +47,16 @@ To render and export these implicit fields, ImplicitLattice utilizes the **March
 3. **Isosurface Extraction:** MC examines each group of 8 adjacent vertices (a cube). By checking which vertices are inside the surface ($>0$) and which are outside ($<0$), the algorithm references a lookup table of 256 possible polygon configurations.
 4. **Vertex Interpolation:** The exact positions of the triangles are determined by linear interpolation along the grid edges, resulting in a smooth, high-fidelity mesh suitable for STL export.
 
-## 📊 Engineering Analytics
+## Engineering Analytics
 
 ImplicitLattice goes beyond geometry by providing real-time engineering feedback:
 
 - **Gibson-Ashby Stiffness Prediction:** Estimates the effective Young's Modulus ($E^*$) of the lattice based on the volume fraction and base material properties.
 - **Volume Fraction Calculation:** High-accuracy grid-based and Monte Carlo integration to determine material-to-void ratios.
-- **Mass Estimation:** Predicts the final part weight based on the calculated volume and material density ($ho$).
+- **Mass Estimation:** Predicts the final part weight based on the calculated volume and material density ($
+ho$).
 
-## 🛠️ Quick Start
+## Quick Start
 
 ### 1. Configure Your Design
 You can change the entire lattice design without touching the core code. Simply modify `config.py`:
@@ -77,7 +78,7 @@ Run the main application to generate the field, perform analytics, and view the 
 python main_app.py
 ```
 
-## 📦 Requirements
+## Requirements
 
 - `numpy`
 - `pyvista`
