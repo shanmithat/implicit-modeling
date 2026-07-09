@@ -33,12 +33,12 @@ The core of this engine relies on TPMS, which are surfaces that are periodic in 
 
 #### 1. The Gyroid
 The Gyroid is a continuous, non-self-intersecting structure defined by:
-$$ \sin(\omega x)\cos(\omega y) + \sin(\omega y)\cos(\omega z) + \sin(\omega z)\cos(\omega x) = t $$
+$$\sin(\omega x)\cos(\omega y) + \sin(\omega y)\cos(\omega z) + \sin(\omega z)\cos(\omega x) = t$$
 Where $\omega = \frac{2\pi}{L}$ defines the spatial frequency based on the unit cell size $L$, and $t$ acts as the iso-level dictating thickness.
 
 #### 2. The Diamond (Schwarz D)
 The Diamond structure provides high stiffness and is defined as:
-$$ \sin(\omega x)\sin(\omega y)\sin(\omega z) + \sin(\omega x)\cos(\omega y)\cos(\omega z) + \cos(\omega x)\sin(\omega y)\cos(\omega z) + \cos(\omega x)\cos(\omega y)\sin(\omega z) = t $$
+$$\sin(\omega x)\sin(\omega y)\sin(\omega z) + \sin(\omega x)\cos(\omega y)\cos(\omega z) + \cos(\omega x)\sin(\omega y)\cos(\omega z) + \cos(\omega x)\cos(\omega y)\sin(\omega z) = t$$
 
 ### The Marching Cubes Algorithm
 To render and export these implicit fields, ImplicitLattice utilizes the **Marching Cubes (MC)** algorithm via `PyVista/VTK`:
